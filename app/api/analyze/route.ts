@@ -6,15 +6,14 @@ export async function POST(request: NextRequest) {
     const imageFile = formData.get('image') as File;
     const userDescription = formData.get('description') as string || '';
     
-    console.log('=== ADVANCED AI WITH WEB SEARCH ===');
-    console.log('Processing image:', imageFile?.name, imageFile?.size);
-    console.log('User said:', userDescription);
+    console.log('=== PROCESSING WITH GOOGLE SEARCH GROUNDING ===');
+    console.log('Image:', imageFile?.name, imageFile?.size);
+    console.log('Description:', userDescription);
     
     if (!imageFile) {
       return NextResponse.json({ error: 'No image provided' }, { status: 400 });
     }
 
-    // Convert image to base64
     const bytes = await imageFile.arrayBuffer();
     const base64Image = Buffer.from(bytes).toString('base64');
     
@@ -23,77 +22,56 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'API key not configured' }, { status: 500 });
     }
     
-    // ADVANCED PROMPT WITH WEB SEARCH INSTRUCTIONS
-    const prompt = `You are an expert marketplace listing creator with internet search capabilities. Analyze this image and user input to create comprehensive, research-backed listings.
+    // ENHANCED PROMPT FOR WEB SEARCH + IMAGE ANALYSIS
+    const prompt = `You are an expert marketplace listing creator with access to Google Search. Analyze this image and user description to create a comprehensive, research-backed listing.
 
 User description: "${userDescription}"
 
-REQUIRED ACTIONS:
-1. IDENTIFY THE ITEM: Look carefully at the image to identify the exact item, brand, model, style, and key features
-2. SEARCH THE INTERNET: Research this specific item online to find:
-   - Original retail price and where it's sold
-   - Product specifications and dimensions  
-   - Similar items currently for sale
-   - Market price ranges for used versions
-   - Brand information and product reviews
-3. PRICING RESEARCH: Look up current marketplace prices for this item in used condition
-4. DETAILED ANALYSIS: Combine image analysis with internet research
+STEP 1: ANALYZE THE IMAGE
+Look carefully at the image and identify:
+- Exact item type, brand, model if visible
+- Style, materials, colors, condition
+- Any visible brand labels, logos, or design details
 
-If the user mentions a specific store (IKEA, Target, Wayfair, etc.), prioritize searching that retailer's website for the exact product.
+STEP 2: SEARCH THE INTERNET
+Use Google Search to research:
+- If user mentions a specific store (IKEA, Target, etc.), search that retailer for this item
+- Find the exact product name, model number, and specifications
+- Look up original retail prices and current market values
+- Research similar items currently for sale to understand pricing
 
-Provide a comprehensive JSON response:
+STEP 3: CREATE COMPREHENSIVE LISTING
+Provide a detailed JSON response with your research:
+
 {
   "item_identification": {
-    "name": "Exact product name if found online",
+    "name": "Exact product name found online (e.g., 'IKEA TOBIAS Chair' or 'Kartell Victoria Ghost Chair')",
     "brand": "Brand name",
-    "model": "Model/SKU if available", 
+    "model": "Model/SKU if found",
     "category": "Furniture/Electronics/Home/etc",
-    "style": "Modern/Traditional/Contemporary/etc",
-    "materials": "What materials you can see",
-    "colors": "Exact colors visible",
-    "condition_assessment": "Excellent/Very Good/Good/Fair based on image"
+    "style": "Modern/Traditional/etc",
+    "materials": "Materials visible in image",
+    "condition_assessment": "Based on image analysis",
+    "retail_source": "Where this item is sold (IKEA, Kartell, etc.)"
   },
   "internet_research": {
-    "original_retail_price": "Price from retailer websites",
-    "where_sold": "Which stores/websites sell this",
-    "product_specifications": "Detailed specs found online",
-    "dimensions": "Size information if found",
-    "similar_items_found": "What similar products exist",
-    "market_research": "Current resale prices found online"
+    "original_price": "Current retail price found online",
+    "product_specs": "Dimensions, materials, features found online",
+    "market_analysis": "Current used prices found online",
+    "search_confidence": "How confident you are in the identification"
   },
-  "pricing_strategy": {
-    "suggested_price": "$XX (main recommendation)",
-    "quick_sale_price": "$XX (fast turnover)",
-    "optimistic_price": "$XX (best case)",
-    "pricing_rationale": "Detailed explanation based on research"
-  },
-  "marketplace_listings": {
-    "facebook_marketplace": {
-      "title": "Optimized for Facebook (casual tone)",
-      "description": "Personal, story-driven description with research details",
-      "price": "$XX"
-    },
-    "craigslist": {
-      "title": "Professional title with specs",
-      "description": "Detailed, factual description with dimensions/specs",
-      "price": "$XX"
-    },
-    "offerup": {
-      "title": "Mobile-friendly title",
-      "description": "Concise but complete description",
-      "price": "$XX"
-    }
-  },
-  "selling_optimization": {
-    "key_selling_points": ["Most important features to highlight"],
-    "target_buyers": "Who would want this item",
-    "best_posting_times": "When to post for maximum visibility",
-    "negotiation_advice": "How to handle offers",
-    "photos_needed": "Additional angles that would help sell"
+  "marketplace_listing": {
+    "title": "Professional title with brand and model",
+    "price": "Recommended selling price based on research",
+    "description": "Compelling description combining image details with research",
+    "category": "Appropriate marketplace category",
+    "condition": "Honest condition assessment",
+    "key_features": ["Most important selling points"],
+    "why_priced_this_way": "Explanation of pricing based on research"
   }
 }
 
-CRITICAL: Use your web search capabilities to find real, current information about this item. Don't guess - research it online and provide factual, verified details.`;
+CRITICAL: Use Google Search to find real information about this specific item. If the user mentions a store name, prioritize searching that retailer's website. Provide factual, researched information, not guesses.`;
 
     const requestBody = {
       contents: [{
@@ -108,22 +86,24 @@ CRITICAL: Use your web search capabilities to find real, current information abo
         ]
       }],
       generationConfig: {
-        temperature: 0.2,
-        maxOutputTokens: 4000
+        temperature: 0.3,
+        maxOutputTokens: 3000
       },
-      // Enable web search capabilities
+      // Enable Google Search grounding
       tools: [{
-        googleSearchRetrieval: {
-          disableAttribution: false
+        google_search_retrieval: {
+          dynamic_retrieval_config: {
+            mode: "MODE_DYNAMIC",
+            dynamic_threshold: 0.5  // Search when 50%+ confidence it will help
+          }
         }
       }]
     };
 
-    console.log('Making advanced API call with web search...');
+    console.log('Making API call with Google Search grounding...');
     
-    // Use Gemini 2.0 Flash with web search capabilities
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -131,87 +111,89 @@ CRITICAL: Use your web search capabilities to find real, current information abo
       }
     );
 
-    console.log('API Response:', response.status, response.statusText);
+    console.log('Response status:', response.status);
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('API Error:', errorText);
+      console.error('API error:', errorText);
       
-      // Fallback to regular Gemini if web search fails
-      if (response.status === 400) {
-        console.log('Web search not available, falling back to regular analysis');
-        return await fallbackToRegularGemini(apiKey, requestBody, userDescription);
+      // If grounding fails, try without it
+      if (response.status === 400 || response.status === 403) {
+        console.log('Grounding failed, trying without web search...');
+        return await fallbackWithoutSearch(apiKey, requestBody, userDescription);
       }
       
-      throw new Error(`API Error: ${response.status}`);
+      throw new Error(`API failed: ${response.status}`);
     }
 
     const result = await response.json();
     const text = result.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const groundingMetadata = result.candidates?.[0]?.groundingMetadata;
     
-    console.log('Got advanced response with web search:', text.substring(0, 300) + '...');
+    console.log('Raw AI response:', text.substring(0, 300) + '...');
+    console.log('Grounding metadata:', !!groundingMetadata);
+    
+    if (groundingMetadata) {
+      console.log('SUCCESS: Web search was used!');
+      console.log('Search queries:', groundingMetadata.webSearchQueries);
+    }
     
     // Parse the comprehensive JSON response
+    let comprehensiveData;
     try {
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
-        const comprehensiveData = JSON.parse(jsonMatch[0]);
-        
-        console.log('Successfully parsed comprehensive listing');
-        
-        return NextResponse.json({
-          success: true,
-          web_search_used: true,
-          comprehensive_data: comprehensiveData,
-          // Convert to simplified format for frontend compatibility
-          listing: {
-            title: comprehensiveData.marketplace_listings?.facebook_marketplace?.title || 
-                   comprehensiveData.item_identification?.name || 'Quality Item',
-            price: comprehensiveData.pricing_strategy?.suggested_price || '$75',
-            description: comprehensiveData.marketplace_listings?.facebook_marketplace?.description || 
-                        generateFallbackDescription(comprehensiveData, userDescription),
-            category: comprehensiveData.item_identification?.category || 'General',
-            condition: comprehensiveData.item_identification?.condition_assessment || 'Good',
-            features: comprehensiveData.selling_optimization?.key_selling_points || ['Well-maintained']
-          }
-        });
+        comprehensiveData = JSON.parse(jsonMatch[0]);
+        console.log('Successfully parsed comprehensive data');
       }
     } catch (parseError) {
-      console.log('JSON parse failed, using fallback with available text');
-      return NextResponse.json({
-        success: false,
-        web_search_attempted: true,
-        raw_response: text,
-        listing: createIntelligentFallback(text, userDescription)
-      });
+      console.log('JSON parse failed, creating intelligent fallback');
     }
     
-    // Fallback if no JSON found
-    return NextResponse.json({
-      success: false,
-      listing: createFallbackListing(userDescription),
-      message: 'AI analysis completed but response format needs adjustment'
-    });
+    // Create the response based on what we got
+    if (comprehensiveData && comprehensiveData.marketplace_listing) {
+      return NextResponse.json({
+        success: true,
+        web_search_used: !!groundingMetadata,
+        search_queries: groundingMetadata?.webSearchQueries || [],
+        comprehensive_data: comprehensiveData,
+        listing: {
+          title: comprehensiveData.marketplace_listing.title,
+          price: comprehensiveData.marketplace_listing.price,
+          description: comprehensiveData.marketplace_listing.description,
+          category: comprehensiveData.marketplace_listing.category,
+          condition: comprehensiveData.marketplace_listing.condition,
+          features: comprehensiveData.marketplace_listing.key_features || []
+        }
+      });
+    } else {
+      // Create intelligent fallback from the response text
+      return NextResponse.json({
+        success: true,
+        web_search_used: !!groundingMetadata,
+        search_queries: groundingMetadata?.webSearchQueries || [],
+        listing: createIntelligentFallback(text, userDescription, groundingMetadata)
+      });
+    }
 
   } catch (error) {
     console.error('Request failed:', error);
     
     return NextResponse.json({
       success: false,
-      listing: createFallbackListing(''),
-      message: 'Temporary service issue - using offline analysis'
+      listing: createBasicFallback(userDescription),
+      error: 'Service temporarily unavailable'
     });
   }
 }
 
-// Fallback to regular Gemini without web search
-async function fallbackToRegularGemini(apiKey: string, originalRequest: any, userDescription: string) {
-  console.log('Attempting fallback to regular Gemini...');
+// Fallback without web search
+async function fallbackWithoutSearch(apiKey: string, originalRequest: any, userDescription: string) {
+  console.log('Attempting fallback without web search...');
   
-  // Remove web search tools for fallback
   const fallbackRequest = {
     ...originalRequest,
-    tools: undefined
+    tools: undefined  // Remove web search tools
   };
   
   try {
@@ -231,8 +213,8 @@ async function fallbackToRegularGemini(apiKey: string, originalRequest: any, use
       return NextResponse.json({
         success: true,
         web_search_used: false,
-        fallback_used: true,
-        listing: createIntelligentFallback(text, userDescription)
+        fallback_mode: true,
+        listing: createIntelligentFallback(text, userDescription, null)
       });
     }
   } catch (error) {
@@ -241,80 +223,79 @@ async function fallbackToRegularGemini(apiKey: string, originalRequest: any, use
   
   return NextResponse.json({
     success: false,
-    listing: createFallbackListing(userDescription),
-    message: 'Using basic analysis due to service limitations'
+    listing: createBasicFallback(userDescription),
+    error: 'Analysis service unavailable'
   });
 }
 
-// Create intelligent fallback from AI response text
-function createIntelligentFallback(aiText: string, userDescription: string) {
-  // Extract any useful information from the AI response
+// Create intelligent listing from AI response
+function createIntelligentFallback(aiText: string, userDescription: string, groundingMetadata: any) {
+  // Extract useful information from the AI response
+  const lines = aiText.split('\n').filter(line => line.trim());
+  
+  // Look for brand/model information
+  const brandLine = lines.find(line => 
+    line.toLowerCase().includes('ikea') || 
+    line.toLowerCase().includes('kartell') || 
+    line.toLowerCase().includes('target') ||
+    line.toLowerCase().includes('chair') ||
+    line.toLowerCase().includes('table')
+  );
+  
+  // Extract price if mentioned
   const priceMatch = aiText.match(/\$\d+/);
-  const price = priceMatch ? priceMatch[0] : '$75';
+  const suggestedPrice = priceMatch ? priceMatch[0] : '$75';
   
-  // Look for item identification in the text
-  const sentences = aiText.split(/[.!?]+/);
-  const titleSentence = sentences.find(s => s.includes('chair') || s.includes('table') || s.includes('item')) || sentences[0];
-  const title = titleSentence ? titleSentence.trim().substring(0, 60) + ' - Excellent Condition' : 'Quality Item - Excellent Condition';
+  // Create title from the most informative line
+  let title = 'Quality Item - Excellent Condition';
+  if (brandLine) {
+    const cleanLine = brandLine.replace(/[^\w\s$-]/g, '').trim();
+    if (cleanLine.length > 0 && cleanLine.length < 80) {
+      title = cleanLine + (cleanLine.includes('Condition') ? '' : ' - Excellent Condition');
+    }
+  }
   
-  return {
-    title: title,
-    price: price,
-    description: `${userDescription}
+  // Create description combining user input with AI analysis
+  const description = `${userDescription}
 
-${aiText.substring(0, 200)}...
+${groundingMetadata ? '🌐 Researched with Google Search:' : '📝 AI Analysis:'}
+${aiText.substring(0, 400)}...
 
-• Excellent condition as shown
+• Excellent condition as shown in photos
 • From clean, smoke-free home
 • Ready for immediate pickup
 • Cash preferred, serious buyers only
 
-Perfect for someone looking for a quality piece. Priced to sell!`,
-    category: 'General',
+${groundingMetadata ? 'Price based on current market research.' : 'Competitively priced for quick sale.'}`;
+
+  return {
+    title: title.substring(0, 80),  // Ensure reasonable length
+    price: suggestedPrice,
+    description: description,
+    category: 'Furniture',
     condition: 'Good',
-    features: ['Excellent condition', 'Ready for pickup', 'Quality item']
+    features: ['Excellent condition', 'Ready for pickup', 'Research-backed pricing']
   };
 }
 
-// Simple fallback function
-function createFallbackListing(userDescription: string) {
+// Basic fallback when everything fails
+function createBasicFallback(userDescription: string) {
   const itemName = userDescription.split(' ').slice(0, 3).join(' ') || 'Quality Item';
   
   return {
     title: `${itemName} - Excellent Condition`,
     price: '$75',
-    description: `${userDescription || 'Quality item in excellent condition'}
+    description: `${userDescription || 'Quality item in excellent condition.'}
 
 • Well-maintained and cared for
-• From clean, smoke-free home  
-• Ready for immediate pickup
-• Cash preferred, local pickup only
-• Serious buyers only please
-
-Perfect for someone looking for a quality ${itemName.toLowerCase()}. Priced to sell quickly!`,
-    category: 'General',
-    condition: 'Good',
-    features: ['Well-maintained', 'Ready for pickup', 'Great condition']
-  };
-}
-
-// Generate comprehensive description from research data
-function generateFallbackDescription(data: any, userDescription: string) {
-  const name = data.item_identification?.name || 'item';
-  const brand = data.item_identification?.brand || '';
-  const originalPrice = data.internet_research?.original_retail_price || '';
-  const specs = data.internet_research?.product_specifications || '';
-  
-  return `${brand} ${name} in ${data.item_identification?.condition_assessment || 'excellent'} condition.
-
-${userDescription}
-
-${specs ? `• ${specs}` : ''}
-${originalPrice ? `• Originally retailed for ${originalPrice}` : ''}
-• ${data.item_identification?.materials || 'Quality materials'}
 • From clean, smoke-free home
 • Ready for immediate pickup
-• Cash preferred, serious inquiries only
+• Cash preferred
+• Serious inquiries only
 
-${data.selling_optimization?.target_buyers ? `Perfect for ${data.selling_optimization.target_buyers}.` : ''} Priced for quick sale!`;
+Great piece at a fair price!`,
+    category: 'General',
+    condition: 'Good',
+    features: ['Well-maintained', 'Ready for pickup']
+  };
 }

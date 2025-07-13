@@ -273,9 +273,8 @@ export default function CreateListing() {
       const result = await response.json()
       console.log('Received AI response:', result)
       
-      // Handle new comprehensive response format
+      // Handle the simplified response format
       if (result.listing) {
-        // Use the new listing format directly
         result.comprehensive_listing = {
           title: result.listing.title,
           price: result.listing.price,
@@ -283,25 +282,6 @@ export default function CreateListing() {
           condition: result.listing.condition,
           category: result.listing.category,
           tags: result.listing.features || []
-        }
-      } else {
-        // Convert old format to new format for display
-        const listing = result.result || result.fallback;
-        if (listing && !result.comprehensive_listing) {
-          result.comprehensive_listing = {
-            title: listing.simple_title,
-            price: listing.suggested_price,
-            description: listing.simple_description,
-            condition: 'Good',
-            category: 'General',
-            tags: ['item', 'sale', 'good-condition']
-          }
-          result.item_analysis = {
-            name: listing.item_type,
-            brand: 'Unknown',
-            condition: 'Good',
-            key_features: ['Well-maintained']
-          }
         }
       }
       
@@ -654,41 +634,33 @@ Moving sale - priced to sell quickly!`,
                         <div className="text-3xl font-bold text-green-600 mb-4">
                           {aiResponse.comprehensive_listing?.price || '$75'}
                         </div>
-                        {aiResponse.success && (
+                        {aiResponse.success ? (
                           <div className="text-sm mb-4">
                             {aiResponse.web_search_used ? (
                               <div className="text-blue-600">
-                                🌐 AI + Internet Research Complete
+                                🌐 AI + Google Search Complete
+                                {aiResponse.search_queries && aiResponse.search_queries.length > 0 && (
+                                  <div className="text-xs mt-1">
+                                    Searched: {aiResponse.search_queries.join(', ')}
+                                  </div>
+                                )}
                               </div>
-                            ) : aiResponse.fallback_used ? (
+                            ) : aiResponse.fallback_mode ? (
                               <div className="text-orange-600">
-                                🔄 AI Analysis (Fallback Mode)
+                                🔄 AI Analysis (No Web Search)
                               </div>
                             ) : (
                               <div className="text-green-600">
-                                ✅ AI Analysis Successful (Endpoint {aiResponse.endpoint_used})
+                                ✅ AI Analysis Complete
                               </div>
                             )}
                           </div>
-                        )}
-                        
-                        {/* Show research insights if available */}
-                        {aiResponse.comprehensive_data?.internet_research && (
-                          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                            <h5 className="font-semibold text-blue-800 text-sm mb-2">🔍 Research Insights:</h5>
-                            <div className="text-xs text-blue-700 space-y-1">
-                              {aiResponse.comprehensive_data.internet_research.original_retail_price && (
-                                <div>💰 Original Price: {aiResponse.comprehensive_data.internet_research.original_retail_price}</div>
-                              )}
-                              {aiResponse.comprehensive_data.internet_research.where_sold && (
-                                <div>🏪 Available at: {aiResponse.comprehensive_data.internet_research.where_sold}</div>
-                              )}
-                              {aiResponse.comprehensive_data.internet_research.market_research && (
-                                <div>📊 Market: {aiResponse.comprehensive_data.internet_research.market_research}</div>
-                              )}
-                            </div>
+                        ) : (
+                          <div className="text-sm text-orange-600 mb-4">
+                            🔄 Using Smart Fallback
                           </div>
                         )}
+
                         <Badge className="bg-green-100 text-green-700">
                           {aiResponse.comprehensive_listing?.condition || 'Good Condition'}
                         </Badge>
