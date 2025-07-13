@@ -209,10 +209,68 @@ export default function CreateListing() {
   const startRecording = async () => {
     try {
       console.log('Starting recording...')
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      
+      // Check if getUserMedia is supported
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('Recording not supported in this browser')
+      }
+      
+      // Safari-specific audio constraints (much simpler for compatibility)
+      const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent)
+      
+      let constraints
+      if (isSafari) {
+        // Safari works better with minimal constraints
+        constraints = {
+          audio: true  // Keep it simple for Safari
+        }
+      } else {
+        // More advanced constraints for other browsers
+        constraints = {
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+            channelCount: 1,
+            sampleRate: 44100
+          }
+        }
+      }
+      
+      console.log('Browser detected:', isSafari ? 'Safari' : 'Other', 'Using constraints:', constraints)
+      
+      console.log('Requesting microphone access...')
+      const stream = await navigator.mediaDevices.getUserMedia(constraints)
       console.log('Got media stream:', stream)
       
-      const mediaRecorder = new MediaRecorder(stream)
+      // Safari-compatible MIME type detection
+      let mimeType = ''
+      
+      if (isSafari) {
+        // Safari prefers these formats
+        if (MediaRecorder.isTypeSupported('audio/mp4')) {
+          mimeType = 'audio/mp4'
+        } else if (MediaRecorder.isTypeSupported('audio/wav')) {
+          mimeType = 'audio/wav'
+        } else {
+          mimeType = '' // Let Safari choose the default
+        }
+      } else {
+        // Other browsers
+        if (MediaRecorder.isTypeSupported('audio/webm')) {
+          mimeType = 'audio/webm'
+        } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+          mimeType = 'audio/mp4'
+        } else {
+          mimeType = ''
+        }
+      }
+      
+      console.log('Selected MIME type:', mimeType || 'default')
+      
+      // Create MediaRecorder with Safari-friendly options
+      const mediaRecorderOptions = mimeType ? { mimeType } : {}
+      const mediaRecorder = new MediaRecorder(stream, mediaRecorderOptions)
       mediaRecorderRef.current = mediaRecorder
       
       const audioChunks: BlobPart[] = []
@@ -227,8 +285,9 @@ export default function CreateListing() {
       mediaRecorder.onstop = async () => {
         console.log('Recording stopped, audio chunks:', audioChunks.length)
         if (audioChunks.length > 0) {
-          const audioBlob = new Blob(audioChunks, { type: 'audio/webm' })
-          console.log('Created audio blob:', audioBlob.size)
+          const finalMimeType = mimeType || mediaRecorder.mimeType || 'audio/wav'
+          const audioBlob = new Blob(audioChunks, { type: finalMimeType })
+          console.log('Created audio blob:', audioBlob.size, 'type:', finalMimeType)
           setRecording(audioBlob)
           
           // Convert speech to text
@@ -238,7 +297,7 @@ export default function CreateListing() {
       }
       
       mediaRecorder.onstart = () => {
-        console.log('MediaRecorder started')
+        console.log('MediaRecorder started successfully')
         setIsRecording(true)
         setRecordingDuration(0)
         
@@ -249,14 +308,42 @@ export default function CreateListing() {
       
       mediaRecorder.onerror = (event) => {
         console.error('MediaRecorder error:', event)
+        setIsRecording(false)
+        if (recordingTimerRef.current) {
+          clearInterval(recordingTimerRef.current)
+        }
+        stream.getTracks().forEach(track => track.stop())
       }
       
       console.log('Starting MediaRecorder...')
-      mediaRecorder.start(1000) // Record in 1-second chunks
+      
+      // Safari sometimes needs a delay before starting
+      if (isSafari) {
+        setTimeout(() => {
+          mediaRecorder.start(1000)
+        }, 100)
+      } else {
+        mediaRecorder.start(1000)
+      }
       
     } catch (error) {
       console.error('Error starting recording:', error)
-      alert('Recording failed: ' + error.message)
+      setIsRecording(false)
+      
+      // Show user-friendly error message
+      let errorMessage = 'Recording failed. '
+      
+      if (error.name === 'NotAllowedError') {
+        errorMessage += 'Please allow microphone access in your browser settings and refresh the page.'
+      } else if (error.name === 'NotFoundError') {
+        errorMessage += 'No microphone found. Please connect a microphone and try again.'
+      } else if (error.message.includes('CoreAudioCaptureSource')) {
+        errorMessage += 'Safari microphone issue detected. Please try: 1) Refresh the page 2) Check Safari microphone permissions in System Preferences 3) Try typing your description instead.'
+      } else {
+        errorMessage += 'Please try refreshing the page or use the text input below instead.'
+      }
+      
+      alert(errorMessage)
     }
   }
 
@@ -427,6 +514,16 @@ export default function CreateListing() {
                     {/* Voice Recording */}
                     <Card className="p-6 bg-white/80 backdrop-blur-xl">
                       <h3 className="text-lg font-semibold mb-4">🎤 Voice Description (Recommended)</h3>
+                      
+                      {/* Safari-specific note */}
+                      {/^((?!chrome|android).)*safari/i.test(navigator.userAgent) && (
+                        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                          <div className="text-sm text-blue-800">
+                            <strong>Safari Users:</strong> If recording doesn't work, try refreshing the page or use the text box below. 
+                            Make sure Safari has microphone permission in System Preferences → Security & Privacy → Microphone.
+                          </div>
+                        </div>
+                      )}
                       
                       {!isRecording && !recording && (
                         <Button
