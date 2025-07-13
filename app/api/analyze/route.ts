@@ -61,45 +61,49 @@ export async function POST(request: NextRequest) {
     }
     
     // ENHANCED PROMPT FOR WEB SEARCH + IMAGE ANALYSIS
-    const prompt = `You are a Marketplace Listing Expert. Your task is to create a complete, enticing, and ready-to-post listing for a marketplace like Facebook Marketplace or Craigslist.
-
-Analyze the provided image and the user's description, then use Google Search to find all relevant details about the item.
+    const prompt = `You are an expert Craigslist and Facebook Marketplace listing creator. Your goal is to generate a perfect, ready-to-use JSON object for a seller.
 
 **User's Description:** "${userDescription}"
 
-**Your Task:**
+**Instructions:**
 
 1.  **Analyze and Research:**
-    *   Identify the item, brand, and model from the image and description.
-    *   Use Google Search to find the product's official name, specifications (dimensions, materials, etc.), original retail price, and current resale market value.
-    *   Synthesize the user's description with your research to understand the item's story and condition.
+    *   Thoroughly analyze the user's image and description.
+    *   Use Google Search to find the exact product name, brand, model, dimensions, materials, and current resale value.
+    *   Synthesize all information to create a complete and accurate listing.
 
-2.  **Create the Listing:**
-    *   Generate a complete listing in the following JSON format.
-    *   Do NOT use canned phrases. Create a unique, compelling narrative in the description.
-    *   Be a helpful selling assistant. The tone should be professional, friendly, and persuasive.
+2.  **Generate JSON Output:**
+    *   You MUST respond with only a valid JSON object. Do not include any other text or markdown.
+    *   Use the following structure and fill every field with accurate and well-written content.
 
-**JSON Output Format:**
+**JSON Structure:**
 
 \`\`\`json
 {
-  "title": "A descriptive and enticing title (under 80 characters).",
-  "price": "A specific, market-researched price (e.g., '$125').",
-  "category": "Choose the best category from this list: Antiques & Collectibles, Arts & Crafts, Auto Parts & Accessories, Baby Products, Books/Movies/Music, Cell Phones & Accessories, Clothing/Shoes/Accessories, Electronics, Furniture, Health & Beauty, Home & Kitchen, Jewelry & Watches, Miscellaneous, Musical Instruments, Office Supplies, Patio & Garden, Pets/Pet Supplies, Sporting Goods, Tools & Home Improvement, Toys & Games, Travel/Luggage, Video Games & Consoles, Vehicles, Real Estate.",
-  "condition": "Choose one: New, Like New, Good, Fair, Poor.",
-  "description": "A detailed, original, and compelling description. Start with a strong opening sentence. Mention key features, benefits, and any interesting details from the user's description or your research. Keep it easy to read with paragraphs and bullet points.",
-  "location": "A general location (e.g., 'San Francisco Bay Area'). You can infer this or use a placeholder.",
-  "tags": ["up", "to", "ten", "relevant", "search", "tags"],
-  "brand": "The item's brand, if known.",
-  "model": "The item's model, if known.",
-  "dimensions": "The item's dimensions (e.g., '45\" H x 30\" W x 15\" D').",
-  "color": "The primary color of the item.",
-  "style": "The style of the item (e.g., 'Mid-Century Modern').",
-  "material": "The primary material of the item (e.g., 'Solid Oak')."
+  "product_type": "The general type of product (e.g., 'Mirror', 'Cordless Vacuum').",
+  "brand": "The brand name (e.g., 'IKEA', 'Dyson').",
+  "model": "The model name or number (e.g., 'Hovet', 'V11').",
+  "title": "An enticing, descriptive title for the listing.",
+  "condition": "Choose one: 'New', 'Used - Like New', 'Used - Good', 'Used - Fair'.",
+  "description": "A compelling, narrative description. Start with an engaging overview, then list key features with bullet points. Mention the ideal use case. The description should be formatted with newline characters (\\n) for readability.",
+  "features": [
+    "A key feature or benefit.",
+    "Another key feature.",
+    "A third key feature.",
+    "And a fourth one."
+  ],
+  "dimensions": {
+    "inches": "Dimensions in inches (e.g., '63\\\" x 31\\\"').",
+    "cm": "Dimensions in centimeters (e.g., '160 cm x 78 cm')."
+  },
+  "usage": "The ideal use case for the item (e.g., 'Bedrooms, hallways, entryways').",
+  "ai_reasoning": "Explain your pricing and description strategy. For example: 'I set the price based on 5 similar items found on Facebook Marketplace in the area. The description highlights the minimalist style and versatile mounting options to attract buyers looking for modern decor.'"
 }
 \`\`\`
 
-**CRITICAL:** Fill every field in the JSON object with accurate, well-researched, and well-written information. The user will be copying and pasting this directly into a marketplace listing.`;
+**Example of a good description:**
+"Add modern elegance to your space with the sleek IKEA Hovet mirror.\\n\\nFeaturing clean lines and a slim aluminum frame, this mirror fits effortlessly into any decor. It can be mounted vertically or horizontally to suit your layout.\\n\\n**Key Features:**\\n- Full-length design: Great for full outfit checks\\n- Flexible mounting: Hang vertically or horizontally\\n- Minimalist style: Slim aluminum frame\\n- Excellent condition: No damage, lightly used"
+`;
 
     const requestBody = {
       contents: [{
@@ -250,42 +254,36 @@ async function fallbackWithoutSearch(apiKey: string, originalRequest: any, userD
 
 // Create intelligent listing from AI response
 function createIntelligentFallback(aiText: string, userDescription: string, groundingMetadata: any) {
+  // This is a simplified fallback and may not perfectly parse all fields.
   const titleMatch = aiText.match(/"title":\s*"(.*?)"/);
-  const priceMatch = aiText.match(/"price":\s*"(.*?)"/);
   const descriptionMatch = aiText.match(/"description":\s*"(.*?)"/s);
 
   return {
-    title: titleMatch ? titleMatch[1] : 'Quality Item - Excellent Condition',
-    price: priceMatch ? priceMatch[1] : '$75',
-    description: descriptionMatch ? descriptionMatch[1] : `Here are some details about the item:\n\n${userDescription}`,
-    category: 'Miscellaneous',
-    condition: 'Good',
-    tags: [],
+    product_type: 'Item',
     brand: '',
     model: '',
-    dimensions: '',
-    color: '',
-    style: '',
-    material: ''
+    title: titleMatch ? titleMatch[1] : 'Quality Item for Sale',
+    condition: 'Good',
+    description: descriptionMatch ? descriptionMatch[1] : userDescription,
+    features: [],
+    dimensions: { inches: '', cm: '' },
+    usage: '',
+    ai_reasoning: 'This is a fallback listing. The AI was unable to generate a full listing.'
   };
 }
 
 // Basic fallback when everything fails
 function createBasicFallback() {
   return {
-    title: 'Quality Item - Excellent Condition',
-    price: '$75',
-    description: `Quality item in excellent condition.
-
-• Well-maintained and cared for
-• From clean, smoke-free home
-• Ready for immediate pickup
-• Cash preferred
-• Serious inquiries only
-
-Great piece at a fair price!`,
-    category: 'General',
+    product_type: 'Item',
+    brand: 'N/A',
+    model: 'N/A',
+    title: 'Item for Sale',
     condition: 'Good',
-    features: ['Well-maintained', 'Ready for pickup']
+    description: 'Please see the photo for details.',
+    features: [],
+    dimensions: { inches: 'N/A', cm: 'N/A' },
+    usage: 'General use',
+    ai_reasoning: 'The AI analysis failed. This is a basic fallback listing.'
   };
 }

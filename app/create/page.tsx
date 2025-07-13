@@ -4,24 +4,24 @@ import { useState, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, Upload, Mic, MicOff, Camera, Copy, Check, Share2 } from "lucide-react"
 import Link from "next/link"
 
 interface Listing {
-  title: string;
-  price: string;
-  category: string;
-  condition: string;
-  description: string;
-  location: string;
-  tags: string[];
+  product_type: string;
   brand: string;
   model: string;
-  dimensions: string;
-  color: string;
-  style: string;
-  material: string;
+  title: string;
+  condition: string;
+  description: string;
+  features: string[];
+  dimensions: {
+    inches: string;
+    cm: string;
+  };
+  usage: string;
+  ai_reasoning: string;
+  price?: string; // Price is now optional in the main listing object
 }
 
 interface AIResponse {
@@ -300,14 +300,10 @@ export default function CreateListing() {
                   <div className="grid lg:grid-cols-2 gap-8">
                     <div>
                       <img src={photoPreview || "/placeholder.svg"} alt="Item" className="w-full rounded-lg shadow-lg" />
-                      {aiResponse?.web_search_used && (
-                        <div className="text-sm mt-4 text-blue-600">
-                          🌐 AI + Google Search Complete
-                          {aiResponse.search_queries && aiResponse.search_queries.length > 0 && (
-                            <div className="text-xs mt-1">
-                              Searched: {aiResponse.search_queries.join(", ")}
-                            </div>
-                          )}
+                      {aiResponse?.listing.ai_reasoning && (
+                        <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                          <h4 className="font-semibold text-blue-900 text-sm mb-2">AI Reasoning</h4>
+                          <p className="text-sm text-blue-800">{aiResponse.listing.ai_reasoning}</p>
                         </div>
                       )}
                     </div>
@@ -316,26 +312,24 @@ export default function CreateListing() {
                       {aiResponse?.listing ? (
                         <>
                           {renderListingField("Title", aiResponse.listing.title)}
-                          {renderListingField("Price", aiResponse.listing.price)}
-                          {renderListingField("Category", aiResponse.listing.category)}
+                          {aiResponse.listing.price && renderListingField("Price", aiResponse.listing.price)}
+                          {renderListingField("Category", aiResponse.listing.product_type)}
                           {renderListingField("Condition", aiResponse.listing.condition)}
                           {renderListingField("Brand", aiResponse.listing.brand)}
                           {renderListingField("Model", aiResponse.listing.model)}
-                          {renderListingField("Color", aiResponse.listing.color)}
-                          {renderListingField("Dimensions", aiResponse.listing.dimensions)}
-                          {renderListingField("Material", aiResponse.listing.material)}
-                          {renderListingField("Style", aiResponse.listing.style)}
-                          {renderListingField("Tags", aiResponse.listing.tags)}
+                          {renderListingField("Dimensions (in)", aiResponse.listing.dimensions.inches)}
+                          {renderListingField("Dimensions (cm)", aiResponse.listing.dimensions.cm)}
+                          {renderListingField("Usage", aiResponse.listing.usage)}
                           
                           <div>
                             <span className="text-sm font-semibold text-slate-600">Description</span>
                             <div className="mt-1 bg-slate-50 border border-slate-200 rounded-md px-3 py-2 text-sm text-slate-800 whitespace-pre-wrap">
-                              {aiResponse.listing.description}
+                              {aiResponse.listing.description.replace(/\\n/g, '\n')}
                             </div>
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => handleCopy(aiResponse.listing.description, "Description")}
+                              onClick={() => handleCopy(aiResponse.listing.description.replace(/\\n/g, '\n'), "Description")}
                               className="mt-2"
                             >
                               {copiedField === "Description" ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
