@@ -10,7 +10,35 @@ import Link from "next/link"
 
 interface AIResponse {
   success?: boolean
+  web_search_used?: boolean
+  fallback_used?: boolean
   endpoint_used?: number
+  comprehensive_data?: {
+    item_identification: {
+      name: string
+      brand: string
+      model: string
+      category: string
+      condition_assessment: string
+    }
+    internet_research: {
+      original_retail_price: string
+      where_sold: string
+      market_research: string
+    }
+    pricing_strategy: {
+      suggested_price: string
+      pricing_rationale: string
+    }
+  }
+  listing: {
+    title: string
+    price: string
+    description: string
+    category: string
+    condition: string
+    features: string[]
+  }
   result?: {
     what_i_see: string
     item_type: string
@@ -245,22 +273,35 @@ export default function CreateListing() {
       const result = await response.json()
       console.log('Received AI response:', result)
       
-      // Convert new format to old format for display
-      const listing = result.result || result.fallback;
-      if (listing && !result.comprehensive_listing) {
+      // Handle new comprehensive response format
+      if (result.listing) {
+        // Use the new listing format directly
         result.comprehensive_listing = {
-          title: listing.simple_title,
-          price: listing.suggested_price,
-          description: listing.simple_description,
-          condition: 'Good',
-          category: 'General',
-          tags: ['item', 'sale', 'good-condition']
+          title: result.listing.title,
+          price: result.listing.price,
+          description: result.listing.description,
+          condition: result.listing.condition,
+          category: result.listing.category,
+          tags: result.listing.features || []
         }
-        result.item_analysis = {
-          name: listing.item_type,
-          brand: 'Unknown',
-          condition: 'Good',
-          key_features: ['Well-maintained']
+      } else {
+        // Convert old format to new format for display
+        const listing = result.result || result.fallback;
+        if (listing && !result.comprehensive_listing) {
+          result.comprehensive_listing = {
+            title: listing.simple_title,
+            price: listing.suggested_price,
+            description: listing.simple_description,
+            condition: 'Good',
+            category: 'General',
+            tags: ['item', 'sale', 'good-condition']
+          }
+          result.item_analysis = {
+            name: listing.item_type,
+            brand: 'Unknown',
+            condition: 'Good',
+            key_features: ['Well-maintained']
+          }
         }
       }
       
@@ -614,8 +655,38 @@ Moving sale - priced to sell quickly!`,
                           {aiResponse.comprehensive_listing?.price || '$75'}
                         </div>
                         {aiResponse.success && (
-                          <div className="text-sm text-green-600 mb-4">
-                            ✅ AI Analysis Successful (Endpoint {aiResponse.endpoint_used})
+                          <div className="text-sm mb-4">
+                            {aiResponse.web_search_used ? (
+                              <div className="text-blue-600">
+                                🌐 AI + Internet Research Complete
+                              </div>
+                            ) : aiResponse.fallback_used ? (
+                              <div className="text-orange-600">
+                                🔄 AI Analysis (Fallback Mode)
+                              </div>
+                            ) : (
+                              <div className="text-green-600">
+                                ✅ AI Analysis Successful (Endpoint {aiResponse.endpoint_used})
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        
+                        {/* Show research insights if available */}
+                        {aiResponse.comprehensive_data?.internet_research && (
+                          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                            <h5 className="font-semibold text-blue-800 text-sm mb-2">🔍 Research Insights:</h5>
+                            <div className="text-xs text-blue-700 space-y-1">
+                              {aiResponse.comprehensive_data.internet_research.original_retail_price && (
+                                <div>💰 Original Price: {aiResponse.comprehensive_data.internet_research.original_retail_price}</div>
+                              )}
+                              {aiResponse.comprehensive_data.internet_research.where_sold && (
+                                <div>🏪 Available at: {aiResponse.comprehensive_data.internet_research.where_sold}</div>
+                              )}
+                              {aiResponse.comprehensive_data.internet_research.market_research && (
+                                <div>📊 Market: {aiResponse.comprehensive_data.internet_research.market_research}</div>
+                              )}
+                            </div>
                           </div>
                         )}
                         <Badge className="bg-green-100 text-green-700">
