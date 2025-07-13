@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { motion, AnimatePresence } from "framer-motion"
-import { ArrowLeft, Camera, Upload, Mic, Play, Pause, RotateCcw, Copy, Check, Share2, ArrowRight } from "lucide-react"
+import { ArrowLeft, Camera, Upload, Mic, Play, Pause, RotateCcw, Copy, Check, Share2, ArrowRight, DollarSign, TrendingUp, Clock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -11,6 +11,7 @@ import { useState, useRef, useCallback } from "react"
 import { Inter } from "next/font/google"
 import Link from "next/link"
 import { compressImage } from "@/lib/utils"
+import { CopyButton, ListingSection, PricingInsights, ProTips } from "@/components/enhanced-results"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -33,10 +34,18 @@ interface GeneratedListing {
 }
 
 // Real AI processing function
-const generateListings = async (photo: File, userDescription: string): Promise<Record<Platform, GeneratedListing>> => {
+const generateListings = async (photo: File, userDescription: string, guidedAnswers?: Record<string, string>): Promise<any> => {
   const formData = new FormData();
   formData.append('image', photo);
   formData.append('description', userDescription);
+  
+  // Add guided answers if provided
+  if (guidedAnswers) {
+    const guidedText = Object.entries(guidedAnswers)
+      .map(([question, answer]) => `${question}: ${answer}`)
+      .join('\n');
+    formData.append('guidedAnswers', guidedText);
+  }
 
   const response = await fetch('/api/analyze', {
     method: 'POST',
@@ -53,29 +62,7 @@ const generateListings = async (photo: File, userDescription: string): Promise<R
     throw new Error(result.error || 'Analysis failed');
   }
 
-  // Transform API response to match our component interface
-  const apiData = result.data;
-  
-  return {
-    facebook: {
-      title: apiData.listings.facebook.title,
-      description: apiData.listings.facebook.description,
-      price: apiData.listings.facebook.price,
-      tags: apiData.listings.facebook.tags,
-    },
-    craigslist: {
-      title: apiData.listings.craigslist.title,
-      description: apiData.listings.craigslist.description,
-      price: apiData.listings.craigslist.price,
-      tags: apiData.listings.craigslist.tags,
-    },
-    offerup: {
-      title: apiData.listings.offerup.title,
-      description: apiData.listings.offerup.description,
-      price: apiData.listings.offerup.price,
-      tags: apiData.listings.offerup.tags,
-    },
-  };
+  return result.data;
 }
 
 // Components
@@ -131,9 +118,9 @@ const PlatformTab = ({
   onClick: () => void
 }) => {
   const platformConfig = {
-    facebook: { name: "Facebook", color: "bg-blue-500", icon: "📘" },
-    craigslist: { name: "Craigslist", color: "bg-purple-500", icon: "📋" },
-    offerup: { name: "OfferUp", color: "bg-green-500", icon: "🛒" },
+    facebook: { name: "Facebook", color: "bg-blue-600", icon: "📘", textColor: "text-blue-600" },
+    craigslist: { name: "Craigslist", color: "bg-purple-600", icon: "📋", textColor: "text-purple-600" },
+    offerup: { name: "OfferUp", color: "bg-green-600", icon: "🛒", textColor: "text-green-600" },
   }
 
   const config = platformConfig[platform]
@@ -141,15 +128,121 @@ const PlatformTab = ({
   return (
     <button
       onClick={onClick}
-      className={`flex items-center space-x-2 px-4 py-3 rounded-xl font-medium transition-all duration-300 ${
-        isActive ? `${config.color} text-white shadow-lg scale-105` : "bg-white/60 text-slate-700 hover:bg-white/80"
+      className={`flex items-center space-x-3 px-6 py-4 rounded-2xl font-semibold transition-all duration-300 shadow-lg ${
+        isActive 
+          ? `${config.color} text-white shadow-xl scale-105 border-2 border-white/20` 
+          : `bg-white/90 ${config.textColor} hover:bg-white shadow-md hover:shadow-lg border border-slate-200/50`
       }`}
     >
-      <span className="text-lg">{config.icon}</span>
-      <span>{config.name}</span>
+      <span className="text-xl">{config.icon}</span>
+      <span className="font-medium">{config.name}</span>
     </button>
   )
 }
+
+// Guided Questions Component
+const GuidedQuestions = ({ 
+  answers, 
+  onAnswerChange, 
+  onComplete 
+}: { 
+  answers: Record<string, string>
+  onAnswerChange: (question: string, answer: string) => void
+  onComplete: () => void 
+}) => {
+  const questions = [
+    {
+      id: 'condition',
+      question: 'What condition is your item in?',
+      placeholder: 'e.g., Excellent, very good, good, fair, or poor',
+      required: true
+    },
+    {
+      id: 'purchase_time',
+      question: 'When did you buy this item?',
+      placeholder: 'e.g., 2 years ago, last month, brand new',
+      required: false
+    },
+    {
+      id: 'original_price',
+      question: 'What did you originally pay for it?',
+      placeholder: 'e.g., $200, around $150, not sure',
+      required: false
+    },
+    {
+      id: 'selling_reason',
+      question: 'Why are you selling it?',
+      placeholder: 'e.g., Moving, upgrading, no longer need it',
+      required: true
+    },
+    {
+      id: 'desired_price',
+      question: 'What price are you hoping to get?',
+      placeholder: 'e.g., $100, around $75, open to offers',
+      required: false
+    },
+    {
+      id: 'additional_info',
+      question: 'Any other important details?',
+      placeholder: 'e.g., Smoke-free home, pet-free, includes accessories',
+      required: false
+    }
+  ];
+
+  const handleInputChange = (questionId: string, value: string) => {
+    onAnswerChange(questionId, value);
+  };
+
+  const requiredAnswered = questions
+    .filter(q => q.required)
+    .every(q => answers[q.id]?.trim());
+
+  return (
+    <Card className="p-8 bg-white/90 backdrop-blur-xl border border-white/40 shadow-xl">
+      <div className="space-y-6">
+        <div className="text-center mb-8">
+          <h3 className="text-2xl font-semibold text-slate-900 mb-2">Tell us more about your item</h3>
+          <p className="text-slate-600">Answer these questions to create the perfect listing</p>
+        </div>
+
+        <div className="space-y-6">
+          {questions.map((q, index) => (
+            <motion.div
+              key={q.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.1 }}
+              className="space-y-3"
+            >
+              <label className="block text-sm font-semibold text-slate-700">
+                {q.question}
+                {q.required && <span className="text-red-500 ml-1">*</span>}
+              </label>
+              <input
+                type="text"
+                value={answers[q.id] || ''}
+                onChange={(e) => handleInputChange(q.id, e.target.value)}
+                placeholder={q.placeholder}
+                className="w-full p-4 border border-slate-300 rounded-xl focus:ring-2 focus:ring-cyan-500 focus:border-transparent bg-white/80 backdrop-blur-sm text-slate-900 placeholder-slate-500 transition-all duration-200"
+              />
+            </motion.div>
+          ))}
+        </div>
+
+        <div className="flex justify-center pt-6">
+          <Button
+            onClick={onComplete}
+            disabled={!requiredAnswered}
+            className="bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 text-white px-8 py-4 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
+          >
+            Generate Professional Listings ✨
+            <ArrowRight className="w-5 h-5 ml-2" />
+          </Button>
+        </div>
+      </div>
+    </Card>
+  );
+};
 
 export default function CreatePage() {
   const [currentStep, setCurrentStep] = useState<Step>("upload")
@@ -161,6 +254,9 @@ export default function CreatePage() {
   const [isPlaying, setIsPlaying] = useState(false)
   const [textInput, setTextInput] = useState("")
   const [useTextInput, setUseTextInput] = useState(false)
+  const [guidedAnswers, setGuidedAnswers] = useState<Record<string, string>>({})
+  const [showGuidedQuestions, setShowGuidedQuestions] = useState(false)
+  const [aiResponse, setAiResponse] = useState<any>(null)
   const [listings, setListings] = useState<Record<Platform, GeneratedListing> | null>(null)
   const [activePlatform, setActivePlatform] = useState<Platform>("facebook")
   const [copiedPlatform, setCopiedPlatform] = useState<Platform | null>(null)
@@ -292,7 +388,7 @@ export default function CreatePage() {
 
   // Processing and results
   const processListing = async () => {
-    if (!uploadedPhoto || (!recording && !textInput)) return
+    if (!uploadedPhoto) return
 
     setCurrentStep("processing")
 
@@ -314,8 +410,38 @@ export default function CreatePage() {
       // Get user description from recording transcript or text input
       const userDescription = recording?.transcript || textInput || "No description provided";
       
-      const generatedListings = await generateListings(uploadedPhoto, userDescription);
-      setListings(generatedListings);
+      const generatedData = await generateListings(uploadedPhoto, userDescription, guidedAnswers);
+      setAiResponse(generatedData);
+      
+      // Transform for backward compatibility
+      const transformedListings = {
+        facebook: {
+          title: generatedData.listings.facebook.title,
+          description: typeof generatedData.listings.facebook.description === 'string' 
+            ? generatedData.listings.facebook.description 
+            : Object.values(generatedData.listings.facebook.description).join('\n\n'),
+          price: generatedData.listings.facebook.price,
+          tags: generatedData.listings.facebook.tags,
+        },
+        craigslist: {
+          title: generatedData.listings.craigslist.title,
+          description: typeof generatedData.listings.craigslist.description === 'string'
+            ? generatedData.listings.craigslist.description
+            : Object.values(generatedData.listings.craigslist.description).join('\n\n'),
+          price: generatedData.listings.craigslist.price,
+          tags: generatedData.listings.craigslist.tags,
+        },
+        offerup: {
+          title: generatedData.listings.offerup.title,
+          description: typeof generatedData.listings.offerup.description === 'string'
+            ? generatedData.listings.offerup.description
+            : Object.values(generatedData.listings.offerup.description).join('\n\n'),
+          price: generatedData.listings.offerup.price,
+          tags: generatedData.listings.offerup.tags,
+        },
+      };
+      
+      setListings(transformedListings);
       setCurrentStep("results");
     } catch (error) {
       console.error('Error generating listings:', error);
@@ -410,7 +536,7 @@ export default function CreatePage() {
                       <Button
                         size="lg"
                         onClick={handleCameraCapture}
-                        className="bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 text-white px-8 py-4 text-lg rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
+                        className="bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 text-white px-8 py-4 text-lg rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 font-semibold"
                       >
                         📸 Take Photo
                       </Button>
@@ -420,7 +546,7 @@ export default function CreatePage() {
                       <Button
                         variant="outline"
                         onClick={() => fileInputRef.current?.click()}
-                        className="border-slate-300 text-slate-700 hover:bg-slate-50"
+                        className="border-slate-300 text-slate-700 hover:bg-slate-50 font-medium"
                       >
                         <Upload className="w-4 h-4 mr-2" />
                         Choose from Gallery
@@ -486,7 +612,7 @@ export default function CreatePage() {
             </motion.div>
           )}
 
-          {/* Step 2: Voice Recording */}
+          {/* Step 2: Voice Recording OR Guided Questions */}
           {currentStep === "record" && (
             <motion.div
               key="record"
@@ -498,13 +624,55 @@ export default function CreatePage() {
               <div className="text-center">
                 <h1 className="text-3xl lg:text-4xl font-light text-slate-900 mb-4">Tell us about your item</h1>
                 <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-                  Where did you get it? Why are you selling it? Any details that might help it sell faster?
+                  Choose how you'd like to provide details about your item
                 </p>
               </div>
 
-              {!useTextInput ? (
+              {/* Method Selection */}
+              {!showGuidedQuestions && !useTextInput && !recording && (
+                <div className="grid md:grid-cols-2 gap-6">
+                  {/* Guided Questions Option */}
+                  <Card className="p-8 bg-gradient-to-br from-cyan-50 to-cyan-100/50 border border-cyan-200/50 hover:border-cyan-300 transition-all duration-300 cursor-pointer group" 
+                        onClick={() => setShowGuidedQuestions(true)}>
+                    <div className="text-center space-y-4">
+                      <div className="w-16 h-16 mx-auto bg-gradient-to-br from-cyan-500 to-cyan-600 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                        <span className="text-2xl text-white">📝</span>
+                      </div>
+                      <h3 className="text-xl font-semibold text-slate-900">Guided Questions</h3>
+                      <p className="text-slate-600">Answer simple questions for the best results</p>
+                      <div className="text-sm text-cyan-600 font-medium">✨ Recommended</div>
+                    </div>
+                  </Card>
+
+                  {/* Voice Recording Option */}
+                  <Card className="p-8 bg-gradient-to-br from-orange-50 to-orange-100/50 border border-orange-200/50 hover:border-orange-300 transition-all duration-300 cursor-pointer group" 
+                        onClick={() => {/* Will trigger voice recording */}}>
+                    <div className="text-center space-y-4">
+                      <div className="w-16 h-16 mx-auto bg-gradient-to-br from-orange-500 to-orange-600 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                        <Mic className="w-8 h-8 text-white" />
+                      </div>
+                      <h3 className="text-xl font-semibold text-slate-900">Voice Recording</h3>
+                      <p className="text-slate-600">Speak naturally about your item</p>
+                      <div className="text-sm text-orange-600 font-medium">Quick & Easy</div>
+                    </div>
+                  </Card>
+                </div>
+              )}
+
+              {/* Guided Questions */}
+              {showGuidedQuestions && (
+                <GuidedQuestions 
+                  answers={guidedAnswers}
+                  onAnswerChange={(question, answer) => {
+                    setGuidedAnswers(prev => ({ ...prev, [question]: answer }));
+                  }}
+                  onComplete={processListing}
+                />
+              )}
+
+              {/* Voice Recording Interface */}
+              {!showGuidedQuestions && !useTextInput && (
                 <div className="space-y-8">
-                  {/* Recording Interface */}
                   <Card className="p-8 bg-white/80 backdrop-blur-sm text-center">
                     {!recording ? (
                       <div className="space-y-6">
@@ -574,7 +742,7 @@ export default function CreatePage() {
                     )}
                   </Card>
 
-                  <div className="text-center">
+                  <div className="text-center space-y-4">
                     <Button
                       variant="ghost"
                       onClick={() => setUseTextInput(true)}
@@ -582,9 +750,22 @@ export default function CreatePage() {
                     >
                       ⌨️ Type instead
                     </Button>
+                    
+                    <div className="text-sm text-slate-500">or</div>
+                    
+                    <Button
+                      variant="ghost"
+                      onClick={() => setShowGuidedQuestions(true)}
+                      className="text-cyan-600 hover:text-cyan-800 font-medium"
+                    >
+                      📝 Use guided questions
+                    </Button>
                   </div>
                 </div>
-              ) : (
+              )}
+
+              {/* Text Input */}
+              {useTextInput && !showGuidedQuestions && (
                 <Card className="p-6 bg-white/80 backdrop-blur-sm">
                   <div className="space-y-4">
                     <label className="block text-sm font-medium text-slate-700">Describe your item</label>
@@ -594,11 +775,33 @@ export default function CreatePage() {
                       placeholder="Tell us about your item... Where did you get it? Why are you selling it?"
                       className="w-full h-32 p-4 border border-slate-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent resize-none"
                     />
+                    
+                    <div className="flex justify-center space-x-4">
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setUseTextInput(false);
+                          setTextInput('');
+                        }}
+                        className="border-slate-300 text-slate-700"
+                      >
+                        Cancel
+                      </Button>
+                      
+                      <Button
+                        onClick={() => setShowGuidedQuestions(true)}
+                        variant="outline"
+                        className="border-cyan-300 text-cyan-700"
+                      >
+                        📝 Use guided questions instead
+                      </Button>
+                    </div>
                   </div>
                 </Card>
               )}
 
-              {(recording || textInput.trim()) && (
+              {/* Continue Button for Voice/Text */}
+              {(recording || textInput.trim()) && !showGuidedQuestions && (
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -606,7 +809,7 @@ export default function CreatePage() {
                 >
                   <Button
                     onClick={processListing}
-                    className="bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 text-white px-8 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
+                    className="bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 text-white px-8 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 font-semibold"
                   >
                     Generate Listings ✨
                     <ArrowRight className="w-4 h-4 ml-2" />
@@ -655,8 +858,8 @@ export default function CreatePage() {
             </motion.div>
           )}
 
-          {/* Step 4: Results */}
-          {currentStep === "results" && listings && (
+          {/* Step 4: Enhanced Results */}
+          {currentStep === "results" && aiResponse && (
             <motion.div
               key="results"
               initial={{ opacity: 0, y: 20 }}
@@ -665,9 +868,50 @@ export default function CreatePage() {
               className="space-y-8"
             >
               <div className="text-center">
-                <h1 className="text-3xl lg:text-4xl font-light text-slate-900 mb-4">🎉 Your listings are ready!</h1>
-                <p className="text-lg text-slate-600">Professional copy optimized for each platform</p>
+                <h1 className="text-3xl lg:text-4xl font-light text-slate-900 mb-4">🎉 Your professional listings are ready!</h1>
+                <p className="text-lg text-slate-600">AI-optimized copy for maximum selling success</p>
               </div>
+
+              {/* Item Analysis Summary */}
+              <Card className="p-6 bg-gradient-to-br from-slate-50 to-white border border-slate-200/50">
+                <div className="flex items-start justify-between mb-4">
+                  <div>
+                    <h2 className="text-2xl font-bold text-slate-900">{aiResponse.item_analysis?.name}</h2>
+                    {aiResponse.item_analysis?.brand !== 'Unknown' && (
+                      <p className="text-slate-600 font-medium">{aiResponse.item_analysis.brand} {aiResponse.item_analysis.model !== 'N/A' ? `- ${aiResponse.item_analysis.model}` : ''}</p>
+                    )}
+                    <div className="flex items-center space-x-4 mt-2">
+                      <Badge variant="secondary" className="bg-green-100 text-green-700">
+                        {aiResponse.item_analysis?.condition}
+                      </Badge>
+                      {aiResponse.item_analysis?.estimated_retail_price !== 'Research needed' && (
+                        <span className="text-sm text-slate-600">
+                          Retail: {aiResponse.item_analysis.estimated_retail_price}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-3xl font-bold text-green-600">{aiResponse.pricing_strategy?.market_price}</div>
+                    <div className="text-sm text-slate-600">Recommended Price</div>
+                  </div>
+                </div>
+                
+                {aiResponse.item_analysis?.key_features && (
+                  <div className="flex flex-wrap gap-2">
+                    {aiResponse.item_analysis.key_features.map((feature: string, index: number) => (
+                      <Badge key={index} variant="outline" className="bg-white/60">
+                        {feature}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </Card>
+
+              {/* Pricing Strategy */}
+              {aiResponse.pricing_strategy && (
+                <PricingInsights pricingData={aiResponse.pricing_strategy} />
+              )}
 
               {/* Platform Tabs */}
               <div className="flex justify-center space-x-4">
@@ -688,7 +932,7 @@ export default function CreatePage() {
                 />
               </div>
 
-              {/* Listing Preview */}
+              {/* Enhanced Listing Preview */}
               <AnimatePresence mode="wait">
                 <motion.div
                   key={activePlatform}
@@ -696,8 +940,8 @@ export default function CreatePage() {
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -20 }}
                 >
-                  <Card className="p-6 bg-white/80 backdrop-blur-sm">
-                    <div className="grid md:grid-cols-2 gap-6">
+                  <Card className="p-6 bg-white/90 backdrop-blur-xl border border-white/40 shadow-xl">
+                    <div className="grid lg:grid-cols-2 gap-8">
                       {/* Photo */}
                       <div>
                         <img
@@ -705,41 +949,110 @@ export default function CreatePage() {
                           alt="Item"
                           className="w-full rounded-lg shadow-lg"
                         />
+                        {aiResponse.photo_enhancement && (
+                          <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                            <h4 className="font-semibold text-blue-900 text-sm mb-2">📷 Photo Enhancement Tips</h4>
+                            <ul className="text-sm text-blue-800 space-y-1">
+                              {aiResponse.photo_enhancement.suggestions?.map((tip: string, index: number) => (
+                                <li key={index} className="flex items-start space-x-1">
+                                  <span className="text-blue-600">•</span>
+                                  <span>{tip}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
                       </div>
 
-                      {/* Listing Content */}
+                      {/* Listing Content with Copyable Sections */}
                       <div className="space-y-4">
-                        <div>
-                          <h3 className="text-xl font-semibold text-slate-900 mb-2">
-                            {listings[activePlatform].title}
-                          </h3>
-                          <div className="text-2xl font-bold text-green-600">{listings[activePlatform].price}</div>
-                        </div>
+                        {/* Title Section */}
+                        <ListingSection
+                          title="Title"
+                          content={aiResponse.listings[activePlatform]?.title || ''}
+                          copyLabel="Title"
+                          icon={<Copy className="w-4 h-4" />}
+                          className="border-blue-200 bg-blue-50/50"
+                        />
 
-                        <div className="text-slate-700 leading-relaxed">{listings[activePlatform].description}</div>
+                        {/* Price Section */}
+                        <ListingSection
+                          title="Price"
+                          content={aiResponse.listings[activePlatform]?.price || ''}
+                          copyLabel="Price"
+                          icon={<DollarSign className="w-4 h-4" />}
+                          className="border-green-200 bg-green-50/50"
+                        />
 
-                        <div className="flex flex-wrap gap-2">
-                          {listings[activePlatform].tags.map((tag, index) => (
-                            <Badge key={index} variant="secondary" className="bg-slate-100 text-slate-700">
-                              {tag}
-                            </Badge>
-                          ))}
-                        </div>
+                        {/* Description Sections */}
+                        {typeof aiResponse.listings[activePlatform]?.description === 'object' ? (
+                          Object.entries(aiResponse.listings[activePlatform].description).map(([key, value]) => (
+                            <ListingSection
+                              key={key}
+                              title={key.charAt(0).toUpperCase() + key.slice(1).replace('_', ' ')}
+                              content={value as string}
+                              copyLabel={key.replace('_', ' ')}
+                              className="border-slate-200 bg-slate-50/50"
+                            />
+                          ))
+                        ) : (
+                          <ListingSection
+                            title="Description"
+                            content={aiResponse.listings[activePlatform]?.description || ''}
+                            copyLabel="Description"
+                            className="border-slate-200 bg-slate-50/50"
+                          />
+                        )}
 
+                        {/* Tags Section */}
+                        {aiResponse.listings[activePlatform]?.tags && (
+                          <div className="border border-slate-200 rounded-xl p-4 bg-white/50 backdrop-blur-sm">
+                            <div className="flex items-center justify-between mb-3">
+                              <h4 className="font-semibold text-slate-900 text-sm">Tags</h4>
+                              <CopyButton 
+                                text={aiResponse.listings[activePlatform].tags.join(', ')} 
+                                label="Tags" 
+                                size="sm" 
+                              />
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              {aiResponse.listings[activePlatform].tags.map((tag: string, index: number) => (
+                                <Badge key={index} variant="secondary" className="bg-slate-100 text-slate-700">
+                                  {tag}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Complete Listing Copy */}
                         <div className="pt-4">
                           <Button
-                            onClick={() => copyListing(activePlatform)}
-                            className="w-full bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 text-white py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
+                            onClick={() => {
+                              const listing = aiResponse.listings[activePlatform];
+                              let fullText = `${listing.title}\n\nPrice: ${listing.price}\n\n`;
+                              
+                              if (typeof listing.description === 'object') {
+                                fullText += Object.values(listing.description).join('\n\n');
+                              } else {
+                                fullText += listing.description;
+                              }
+                              
+                              navigator.clipboard.writeText(fullText);
+                              setCopiedPlatform(activePlatform);
+                              setTimeout(() => setCopiedPlatform(null), 2000);
+                            }}
+                            className="w-full bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 text-white py-4 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 font-semibold text-lg"
                           >
                             {copiedPlatform === activePlatform ? (
                               <>
-                                <Check className="w-4 h-4 mr-2" />
-                                Copied!
+                                <Check className="w-5 h-5 mr-2" />
+                                Complete Listing Copied!
                               </>
                             ) : (
                               <>
-                                <Copy className="w-4 h-4 mr-2" />
-                                Copy Listing
+                                <Copy className="w-5 h-5 mr-2" />
+                                Copy Complete Listing
                               </>
                             )}
                           </Button>
@@ -750,26 +1063,52 @@ export default function CreatePage() {
                 </motion.div>
               </AnimatePresence>
 
-              {/* Quality Indicators */}
-              <div className="flex justify-center space-x-6 text-sm text-slate-600">
-                <div className="flex items-center space-x-1">
-                  <Check className="w-4 h-4 text-green-500" />
-                  <span>Professional tone</span>
-                </div>
-                <div className="flex items-center space-x-1">
-                  <Check className="w-4 h-4 text-green-500" />
-                  <span>SEO optimized</span>
-                </div>
-                <div className="flex items-center space-x-1">
-                  <Check className="w-4 h-4 text-green-500" />
-                  <span>Priced competitively</span>
-                </div>
+              {/* Pro Tips */}
+              {(aiResponse.pro_tips || aiResponse.selling_optimization) && (
+                <ProTips 
+                  proTips={aiResponse.pro_tips || {}} 
+                  optimization={aiResponse.selling_optimization || {}} 
+                />
+              )}
+
+              {/* Common Questions */}
+              {aiResponse.selling_optimization?.common_questions && (
+                <Card className="p-6 bg-gradient-to-br from-amber-50 to-yellow-50 border border-amber-200/50">
+                  <div className="flex items-center space-x-2 mb-4">
+                    <span className="text-amber-600">🤔</span>
+                    <h3 className="text-lg font-semibold text-slate-900">Expect These Questions</h3>
+                  </div>
+                  <div className="space-y-2">
+                    {aiResponse.selling_optimization.common_questions.map((question: string, index: number) => (
+                      <div key={index} className="flex items-start space-x-2 p-3 bg-white/60 rounded-lg">
+                        <div className="text-amber-600 mt-0.5">•</div>
+                        <div className="text-sm text-slate-700">{question}</div>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              )}
+
+              {/* Success Metrics */}
+              <div className="grid grid-cols-3 gap-4">
+                <Card className="p-4 text-center bg-white/60 border border-slate-200/50">
+                  <div className="text-2xl font-bold text-green-600">3x</div>
+                  <div className="text-sm text-slate-600">Better Engagement</div>
+                </Card>
+                <Card className="p-4 text-center bg-white/60 border border-slate-200/50">
+                  <div className="text-2xl font-bold text-blue-600">SEO</div>
+                  <div className="text-sm text-slate-600">Optimized</div>
+                </Card>
+                <Card className="p-4 text-center bg-white/60 border border-slate-200/50">
+                  <div className="text-2xl font-bold text-purple-600">Pro</div>
+                  <div className="text-sm text-slate-600">Quality</div>
+                </Card>
               </div>
 
               {/* Next Steps */}
-              <div className="text-center space-y-4">
+              <div className="text-center space-y-6">
                 <div className="text-lg font-medium text-slate-900">
-                  💡 Pro tip: Post during peak hours (6-8 PM) for best results
+                  💡 Ready to post? Copy your sections and start selling!
                 </div>
 
                 <div className="flex justify-center space-x-4">
@@ -780,16 +1119,22 @@ export default function CreatePage() {
                       setPhotoPreview("")
                       setRecording(null)
                       setTextInput("")
-                      setListings(null)
+                      setGuidedAnswers({})
+                      setShowGuidedQuestions(false)
                       setUseTextInput(false)
+                      setAiResponse(null)
+                      setListings(null)
                     }}
                     variant="outline"
-                    className="border-slate-300 text-slate-700"
+                    className="border-slate-300 text-slate-700 px-6 py-3 font-medium"
                   >
-                    Try Another Item
+                    📷 Try Another Item
                   </Button>
 
-                  <Button variant="outline" className="border-slate-300 text-slate-700 bg-transparent">
+                  <Button 
+                    variant="outline" 
+                    className="border-slate-300 text-slate-700 bg-transparent px-6 py-3 font-medium"
+                  >
                     <Share2 className="w-4 h-4 mr-2" />
                     Share FlipEasy
                   </Button>

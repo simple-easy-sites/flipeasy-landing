@@ -6,6 +6,7 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData();
     const imageFile = formData.get('image') as File;
     const userDescription = formData.get('description') as string || '';
+    const guidedAnswers = formData.get('guidedAnswers') as string || '';
     
     if (!imageFile) {
       return NextResponse.json({ error: 'No image provided' }, { status: 400 });
@@ -29,40 +30,41 @@ export async function POST(request: NextRequest) {
       throw new Error('Failed to obtain access token for Vertex AI');
     }
     
+    // Combine user input
+    const fullUserInput = `
+    User Description: ${userDescription}
+    Guided Answers: ${guidedAnswers}
+    `;
+    
     // Prepare the request for Vertex AI Gemini 2.5 Pro
     const vertexAIRequest = {
       contents: [{
         role: 'user',
         parts: [
           {
-            text: `You are an expert marketplace listing creator and product researcher with access to web search. Analyze this image carefully and create professional listings optimized for different platforms.
+            text: `You are an expert marketplace listing creator and product researcher. Analyze this image and create premium, professional listings optimized for different platforms.
 
-User's description: "${userDescription}"
+User Input: "${fullUserInput}"
 
 COMPREHENSIVE ANALYSIS REQUIRED:
 
 1. DETAILED ITEM IDENTIFICATION:
-   - Identify the exact item (name, type, category)
+   - Identify the exact item (name, type, category, model if visible)
    - Look for visible brand names, logos, model numbers, or distinctive features
-   - If you see furniture that looks like IKEA, Wayfair, Target, etc., try to identify the specific product
+   - If this appears to be IKEA, Target, Wayfair, etc., identify the specific product name
    - Estimate condition based on visible wear, scratches, or damage
-   - Note materials, colors, and design style
+   - Note materials, colors, design style, and key features
 
-2. PRODUCT RESEARCH (use web search if available):
-   - If this appears to be from IKEA, search for the specific product name and model
-   - Look up current retail prices for similar items
-   - Find typical used market prices for this type of item
-   - Research product dimensions and specifications if identifiable
+2. PRODUCT RESEARCH:
+   - Research current retail prices for this exact item if identifiable
+   - Find typical used market prices for similar items
+   - Consider seasonal demand and local market factors
+   - Research product dimensions and specifications
 
-3. MARKET INTELLIGENCE:
-   - Consider seasonal demand factors
-   - Account for local vs national market differences
-   - Factor in item condition, age, and demand
-
-4. SAFETY & LEGAL CONSIDERATIONS:
-   - Note any items that require special safety warnings
-   - Identify if this is an item that commonly gets recalled
-   - Consider platform-specific restrictions
+3. PRICING STRATEGY:
+   - Provide 3 pricing options: Quick Sale, Fair Market, Optimistic
+   - Consider condition, demand, and competitive landscape
+   - Factor in original retail price for comparison
 
 Return response in this EXACT JSON structure:
 {
@@ -73,78 +75,96 @@ Return response in this EXACT JSON structure:
     "category": "specific category (e.g., 'office chair', 'dining table', 'smartphone')",
     "condition": "excellent/very good/good/fair/poor",
     "estimated_retail_price": "$XXX (if found) or 'Research needed'",
-    "estimated_used_value_range": "$X - $Y based on condition and market",
     "key_features": ["feature1", "feature2", "feature3"],
     "materials": "wood/metal/plastic/fabric/etc",
     "dimensions": "approximate dimensions if visible or known",
     "notable_wear": "describe any visible damage or wear"
   },
-  "product_research": {
-    "likely_original_source": "IKEA/Wayfair/Target/Unknown/etc",
-    "search_recommendations": ["search term 1", "search term 2"],
-    "comparable_items": ["similar item 1", "similar item 2"],
-    "market_demand": "high/medium/low",
-    "seasonality_factor": "relevant seasonal considerations"
-  },
   "pricing_strategy": {
-    "quick_sale_price": "$XX (15-20% below market)",
-    "market_price": "$XX (fair market value)",
-    "optimistic_price": "$XX (10-15% above market)",
-    "pricing_rationale": "explanation of pricing strategy"
+    "quick_sale_price": "$XX",
+    "market_price": "$XX", 
+    "optimistic_price": "$XX",
+    "pricing_rationale": "explanation of pricing strategy",
+    "retail_comparison": "comparison to retail price if known"
   },
   "listings": {
     "facebook": {
       "title": "Engaging title under 80 chars with key details",
-      "description": "Casual, friendly tone. Mention why selling, condition, pickup details. Use local language. Include measurements if furniture. 2-3 paragraphs max.",
       "price": "$XXX",
+      "description": {
+        "main": "Casual, friendly description. Why you're selling, condition highlights.",
+        "details": "• Condition: [specific condition details]\\n• Dimensions: [if applicable]\\n• Materials: [materials/fabric info]\\n• Original price: $XXX (retail comparison)",
+        "pickup_delivery": "Pickup location or delivery options. Cash preferred.",
+        "story": "Personal touch - why selling, how long owned, etc."
+      },
       "tags": ["tag1", "tag2", "tag3", "tag4", "tag5"]
     },
     "craigslist": {
-      "title": "Detailed title with brand, condition, price - $XXX",
-      "description": "Professional, detailed description. Include all specifications, condition details, firm/negotiable price policy. Mention cash only, pickup location. Safety-focused language.",
+      "title": "BRAND MODEL - Condition - $XXX",
       "price": "$XXX",
+      "description": {
+        "header": "For Sale: [Item Name] - [Condition]",
+        "specifications": "SPECIFICATIONS:\\n• Brand: [Brand]\\n• Model: [Model]\\n• Dimensions: [W x D x H]\\n• Materials: [Materials]\\n• Condition: [Detailed condition]",
+        "description": "DESCRIPTION:\\n[Detailed item description with all features and benefits]",
+        "condition_details": "CONDITION NOTES:\\n[Any wear, flaws, or damage - be honest and detailed]",
+        "pricing": "PRICING:\\n• Asking: $XXX\\n• Retail: $XXX\\n• Firm price/Negotiable",
+        "terms": "TERMS:\\n• Cash only\\n• Serious inquiries only\\n• Must pick up\\n• Located in [general area]"
+      },
       "tags": ["tag1", "tag2", "tag3"]
     },
     "offerup": {
-      "title": "Catchy title! Brand + key feature",
-      "description": "Mobile-friendly short description. Use 1-2 relevant emojis. Focus on quick sale benefits. Mention if firm price.",
+      "title": "Brand Item Name - Condition",
       "price": "$XXX",
+      "description": {
+        "main": "Great condition [item name]! Originally $XXX, selling for $XXX.",
+        "highlights": "✓ [Key feature 1]\\n✓ [Key feature 2]\\n✓ [Key feature 3]",
+        "details": "Dimensions: [if applicable]\\nCondition: [brief condition note]\\nReason for selling: [brief reason]",
+        "logistics": "💰 Price is firm\\n📍 Pick up only\\n💬 Message with questions"
+      },
       "tags": ["tag1", "tag2", "tag3", "tag4", "tag5", "tag6"]
     }
   },
-  "selling_optimization": {
-    "best_posting_times": ["specific times for this category"],
-    "photo_suggestions": ["specific photo tips for this item"],
-    "safety_tips": ["relevant safety considerations"],
-    "common_buyer_questions": ["question1", "question2", "question3"],
-    "negotiation_strategy": "guidance for handling offers"
+  "photo_enhancement": {
+    "suggestions": ["specific photo improvement tips for this item"],
+    "missing_angles": ["angles that would help sell this item"],
+    "lighting_tips": ["specific lighting recommendations"]
   },
-  "follow_up_questions": [
-    "What did you originally pay for this item?",
-    "How long have you owned it?",
-    "Are there any defects not visible in the photo?",
-    "Do you have the original receipt or manual?",
-    "Why are you selling it specifically?"
-  ]
+  "selling_optimization": {
+    "best_posting_times": ["optimal times for this category"],
+    "pricing_advice": "specific advice for pricing this item",
+    "common_questions": ["question1", "question2", "question3"],
+    "negotiation_tips": "guidance for handling offers on this specific item"
+  },
+  "pro_tips": {
+    "retail_comparison": "This item retails for $XXX new, making this a X% savings",
+    "demand_insights": "insights about demand for this specific item",
+    "seasonal_factors": "timing considerations for selling this item",
+    "competition_analysis": "what similar items are selling for locally"
+  }
 }
 
 CRITICAL REQUIREMENTS:
-- Make listings that will actually SELL, not just sound good
-- Price realistically based on actual market conditions
-- Use platform-appropriate language and formatting
-- Include ALL visible details and any wear/damage
-- Consider local market factors and buyer psychology
-- Optimize for search terms buyers actually use
-- Create urgency without seeming desperate
-- Address common buyer concerns proactively
+- Create listings that will actually SELL at optimal prices
+- Use platform-appropriate language and formatting for each marketplace
+- Include ALL visible details and any wear/damage - be completely honest
+- Price realistically based on actual market conditions and item condition
+- Make descriptions scannable with proper formatting and sections
+- Include retail price comparisons when possible for value justification
+- Optimize for platform-specific search terms and buyer behavior
+- Address common buyer concerns proactively in descriptions
 
-If you identify this as an IKEA item or other major retailer product:
-- Include the specific product name in titles
-- Mention current retail price for comparison
-- Reference assembly instructions or product features
-- Note if original packaging/hardware is included
+PLATFORM-SPECIFIC FORMATTING:
+- Facebook: Casual, friendly tone with personal story elements
+- Craigslist: Professional, detailed sections with clear headers
+- OfferUp: Mobile-optimized, brief but informative with emojis sparingly
 
-Be thorough, honest, and strategic in your analysis. The goal is to help this item sell quickly at the best possible price while ensuring buyer and seller safety.`
+If you identify this as a specific branded item (IKEA, etc.):
+- Include the exact product name and model in titles
+- Mention current retail price for value comparison
+- Reference key product features and specifications
+- Note if original packaging/hardware/manual is included
+
+Be thorough, honest, and strategic. The goal is maximum selling success.`
           },
           {
             inline_data: {
@@ -201,10 +221,9 @@ Be thorough, honest, and strategic in your analysis. The goal is to help this it
     } catch (parseError) {
       console.error('Failed to parse Vertex AI response:', text);
       
-      // Enhanced fallback response with better structure
+      // Enhanced fallback response
       const fallbackName = userDescription.includes('IKEA') ? 'IKEA Furniture Item' : 
-                          userDescription.includes('chair') ? 'Chair' :
-                          userDescription.includes('table') ? 'Table' : 'Household Item';
+                          userDescription.includes('chair') ? 'Chair' : 'Household Item';
       
       parsedResponse = {
         item_analysis: {
@@ -214,59 +233,72 @@ Be thorough, honest, and strategic in your analysis. The goal is to help this it
           category: "furniture",
           condition: "good",
           estimated_retail_price: "Research needed",
-          estimated_used_value_range: "$50 - $150",
-          key_features: ["Well-maintained", "Ready for new home", "Good condition"],
+          key_features: ["Well-maintained", "Good condition", "Ready for pickup"],
           materials: "Mixed materials",
           dimensions: "Standard size",
           notable_wear: "Normal wear for age"
-        },
-        product_research: {
-          likely_original_source: userDescription.includes('IKEA') ? 'IKEA' : 'Unknown',
-          search_recommendations: [fallbackName, "similar furniture"],
-          comparable_items: ["similar style furniture", "comparable home goods"],
-          market_demand: "medium",
-          seasonality_factor: "Year-round demand"
         },
         pricing_strategy: {
           quick_sale_price: "$60",
           market_price: "$75",
           optimistic_price: "$90",
-          pricing_rationale: "Conservative pricing based on typical used furniture market"
+          pricing_rationale: "Conservative pricing for quick sale",
+          retail_comparison: "Significant savings from retail"
         },
         listings: {
           facebook: {
             title: `${fallbackName} - Excellent Condition!`,
-            description: `${userDescription}\n\nThis ${fallbackName.toLowerCase()} is in great condition and ready for a new home! We're moving and need to sell quickly. Smoke-free home, pet-free. Pick up only - serious buyers please. Cash preferred, Venmo/PayPal also accepted.\n\nMessage me with any questions or to schedule pickup!`,
             price: "$75",
+            description: {
+              main: "Great condition item from smoke-free home. Moving sale!",
+              details: "• Condition: Very good\\n• Well maintained\\n• Ready for pickup",
+              pickup_delivery: "Pickup only. Cash preferred.",
+              story: "We're moving and need this gone!"
+            },
             tags: ["furniture", "home", "moving", "local", "pickup"]
           },
           craigslist: {
             title: `${fallbackName} - Good Condition - $75`,
-            description: `${userDescription}\n\n${fallbackName} in good condition. Normal wear for age but very functional. Must sell due to relocation.\n\nCash only, you pick up. Located in safe area with easy parking. Serious inquiries only please.\n\nContact for more details or to arrange viewing.`,
             price: "$75",
+            description: {
+              header: `For Sale: ${fallbackName} - Good Condition`,
+              specifications: "SPECIFICATIONS:\\n• Good condition\\n• Well maintained",
+              description: "DESCRIPTION:\\nQuality item in good condition.",
+              condition_details: "CONDITION NOTES:\\nNormal wear for age",
+              pricing: "PRICING:\\n• Asking: $75\\n• Firm price",
+              terms: "TERMS:\\n• Cash only\\n• Pickup only\\n• Serious inquiries"
+            },
             tags: ["furniture", "household", "moving"]
           },
           offerup: {
-            title: `${fallbackName} - Great Deal! 🏠`,
-            description: `${userDescription}\n\nGreat condition ${fallbackName.toLowerCase()}! Perfect for any home. Moving sale - must go! 📦\n\nPick up only. Message me! 📱`,
+            title: `${fallbackName} - Great Deal!`,
             price: "$75",
+            description: {
+              main: "Great condition item! Must sell!",
+              highlights: "✓ Good condition\\n✓ Well maintained\\n✓ Ready to go",
+              details: "Condition: Very good\\nReason: Moving",
+              logistics: "💰 $75 firm\\n📍 Pick up only\\n💬 Message me"
+            },
             tags: ["furniture", "home", "moving", "local", "pickup", "deal"]
           }
         },
-        selling_optimization: {
-          best_posting_times: ["6-8 PM weekdays", "10-12 PM weekends"],
-          photo_suggestions: ["Take photos in good lighting", "Show from multiple angles", "Include close-ups of any wear"],
-          safety_tips: ["Meet in public parking lot", "Bring a friend", "Cash only at pickup"],
-          common_buyer_questions: ["What are the exact dimensions?", "Any damage not shown?", "Why are you selling?"],
-          negotiation_strategy: "Be firm but flexible, bundle with other items if possible"
+        photo_enhancement: {
+          suggestions: ["Better lighting", "Multiple angles", "Clean background"],
+          missing_angles: ["Side view", "Detail shots"],
+          lighting_tips: ["Natural light", "Avoid shadows"]
         },
-        follow_up_questions: [
-          "What did you originally pay for this?",
-          "How long have you owned it?",
-          "Are there any scratches or defects not visible?",
-          "Do you still have assembly instructions?",
-          "Are you flexible on price or firm?"
-        ]
+        selling_optimization: {
+          best_posting_times: ["6-8 PM weekdays", "Weekend mornings"],
+          pricing_advice: "Price competitively for quick sale",
+          common_questions: ["Dimensions?", "Condition?", "Pick up location?"],
+          negotiation_tips: "Be firm but fair"
+        },
+        pro_tips: {
+          retail_comparison: "Great value compared to retail",
+          demand_insights: "High demand for quality used items",
+          seasonal_factors: "Good time to sell",
+          competition_analysis: "Competitive pricing in local market"
+        }
       };
     }
 
