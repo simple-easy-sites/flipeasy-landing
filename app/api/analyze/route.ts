@@ -61,55 +61,45 @@ export async function POST(request: NextRequest) {
     }
     
     // ENHANCED PROMPT FOR WEB SEARCH + IMAGE ANALYSIS
-    const prompt = `You are an expert marketplace listing creator with access to Google Search. Analyze this image and user description to create a comprehensive, research-backed listing.
+    const prompt = `You are a Marketplace Listing Expert. Your task is to create a complete, enticing, and ready-to-post listing for a marketplace like Facebook Marketplace or Craigslist.
 
-User description: "${userDescription}"
+Analyze the provided image and the user's description, then use Google Search to find all relevant details about the item.
 
-STEP 1: ANALYZE THE IMAGE
-Look carefully at the image and identify:
-- Exact item type, brand, model if visible
-- Style, materials, colors, condition
-- Any visible brand labels, logos, or design details
+**User's Description:** "${userDescription}"
 
-STEP 2: SEARCH THE INTERNET
-Use Google Search to research:
-- If user mentions a specific store (IKEA, Target, etc.), search that retailer for this item
-- Find the exact product name, model number, and specifications
-- Look up original retail prices and current market values
-- Research similar items currently for sale to understand pricing
+**Your Task:**
 
-STEP 3: CREATE COMPREHENSIVE LISTING
-Provide a detailed JSON response with your research:
+1.  **Analyze and Research:**
+    *   Identify the item, brand, and model from the image and description.
+    *   Use Google Search to find the product's official name, specifications (dimensions, materials, etc.), original retail price, and current resale market value.
+    *   Synthesize the user's description with your research to understand the item's story and condition.
 
+2.  **Create the Listing:**
+    *   Generate a complete listing in the following JSON format.
+    *   Do NOT use canned phrases. Create a unique, compelling narrative in the description.
+    *   Be a helpful selling assistant. The tone should be professional, friendly, and persuasive.
+
+**JSON Output Format:**
+
+\`\`\`json
 {
-  "item_identification": {
-    "name": "Exact product name found online (e.g., 'IKEA TOBIAS Chair' or 'Kartell Victoria Ghost Chair')",
-    "brand": "Brand name",
-    "model": "Model/SKU if found",
-    "category": "Furniture/Electronics/Home/etc",
-    "style": "Modern/Traditional/etc",
-    "materials": "Materials visible in image",
-    "condition_assessment": "Based on image analysis",
-    "retail_source": "Where this item is sold (IKEA, Kartell, etc.)"
-  },
-  "internet_research": {
-    "original_price": "Current retail price found online",
-    "product_specs": "Dimensions, materials, features found online",
-    "market_analysis": "Current used prices found online",
-    "search_confidence": "How confident you are in the identification"
-  },
-  "marketplace_listing": {
-    "title": "Professional title with brand and model",
-    "price": "Recommended selling price based on research",
-    "description": "Compelling description combining image details with research",
-    "category": "Appropriate marketplace category",
-    "condition": "Honest condition assessment",
-    "key_features": ["Most important selling points"],
-    "why_priced_this_way": "Explanation of pricing based on research"
-  }
+  "title": "A descriptive and enticing title (under 80 characters).",
+  "price": "A specific, market-researched price (e.g., '$125').",
+  "category": "Choose the best category from this list: Antiques & Collectibles, Arts & Crafts, Auto Parts & Accessories, Baby Products, Books/Movies/Music, Cell Phones & Accessories, Clothing/Shoes/Accessories, Electronics, Furniture, Health & Beauty, Home & Kitchen, Jewelry & Watches, Miscellaneous, Musical Instruments, Office Supplies, Patio & Garden, Pets/Pet Supplies, Sporting Goods, Tools & Home Improvement, Toys & Games, Travel/Luggage, Video Games & Consoles, Vehicles, Real Estate.",
+  "condition": "Choose one: New, Like New, Good, Fair, Poor.",
+  "description": "A detailed, original, and compelling description. Start with a strong opening sentence. Mention key features, benefits, and any interesting details from the user's description or your research. Keep it easy to read with paragraphs and bullet points.",
+  "location": "A general location (e.g., 'San Francisco Bay Area'). You can infer this or use a placeholder.",
+  "tags": ["up", "to", "ten", "relevant", "search", "tags"],
+  "brand": "The item's brand, if known.",
+  "model": "The item's model, if known.",
+  "dimensions": "The item's dimensions (e.g., '45\" H x 30\" W x 15\" D').",
+  "color": "The primary color of the item.",
+  "style": "The style of the item (e.g., 'Mid-Century Modern').",
+  "material": "The primary material of the item (e.g., 'Solid Oak')."
 }
+\`\`\`
 
-CRITICAL: Use Google Search to find real information about this specific item. If the user mentions a store name, prioritize searching that retailer's website. Provide factual, researched information, not guesses.`;
+**CRITICAL:** Fill every field in the JSON object with accurate, well-researched, and well-written information. The user will be copying and pasting this directly into a marketplace listing.`;
 
     const requestBody = {
       contents: [{
@@ -189,20 +179,12 @@ CRITICAL: Use Google Search to find real information about this specific item. I
     }
     
     // Create the response based on what we got
-    if (comprehensiveData && comprehensiveData.marketplace_listing) {
+    if (comprehensiveData) {
       return NextResponse.json({
         success: true,
         web_search_used: !!groundingMetadata,
         search_queries: groundingMetadata?.webSearchQueries || [],
-        comprehensive_data: comprehensiveData,
-        listing: {
-          title: comprehensiveData.marketplace_listing.title,
-          price: comprehensiveData.marketplace_listing.price,
-          description: comprehensiveData.marketplace_listing.description,
-          category: comprehensiveData.marketplace_listing.category,
-          condition: comprehensiveData.marketplace_listing.condition,
-          features: comprehensiveData.marketplace_listing.key_features || []
-        }
+        listing: comprehensiveData
       });
     } else {
       // Create intelligent fallback from the response text
@@ -268,51 +250,23 @@ async function fallbackWithoutSearch(apiKey: string, originalRequest: any, userD
 
 // Create intelligent listing from AI response
 function createIntelligentFallback(aiText: string, userDescription: string, groundingMetadata: any) {
-  // Extract useful information from the AI response
-  const lines = aiText.split('\n').filter(line => line.trim());
-  
-  // Look for brand/model information
-  const brandLine = lines.find(line => 
-    line.toLowerCase().includes('ikea') || 
-    line.toLowerCase().includes('kartell') || 
-    line.toLowerCase().includes('target') ||
-    line.toLowerCase().includes('chair') ||
-    line.toLowerCase().includes('table')
-  );
-  
-  // Extract price if mentioned
-  const priceMatch = aiText.match(/\$\d+/);
-  const suggestedPrice = priceMatch ? priceMatch[0] : '$75';
-  
-  // Create title from the most informative line
-  let title = 'Quality Item - Excellent Condition';
-  if (brandLine) {
-    const cleanLine = brandLine.replace(/[^\w\s$-]/g, '').trim();
-    if (cleanLine.length > 0 && cleanLine.length < 80) {
-      title = cleanLine + (cleanLine.includes('Condition') ? '' : ' - Excellent Condition');
-    }
-  }
-  
-  // Create description combining user input with AI analysis
-  const description = `${userDescription}
-
-${groundingMetadata ? '🌐 Researched with Google Search:' : '📝 AI Analysis:'}
-${aiText.substring(0, 400)}...
-
-• Excellent condition as shown in photos
-• From clean, smoke-free home
-• Ready for immediate pickup
-• Cash preferred, serious buyers only
-
-${groundingMetadata ? 'Price based on current market research.' : 'Competitively priced for quick sale.'}`;
+  const titleMatch = aiText.match(/"title":\s*"(.*?)"/);
+  const priceMatch = aiText.match(/"price":\s*"(.*?)"/);
+  const descriptionMatch = aiText.match(/"description":\s*"(.*?)"/s);
 
   return {
-    title: title.substring(0, 80),  // Ensure reasonable length
-    price: suggestedPrice,
-    description: description,
-    category: 'Furniture',
+    title: titleMatch ? titleMatch[1] : 'Quality Item - Excellent Condition',
+    price: priceMatch ? priceMatch[1] : '$75',
+    description: descriptionMatch ? descriptionMatch[1] : `Here are some details about the item:\n\n${userDescription}`,
+    category: 'Miscellaneous',
     condition: 'Good',
-    features: ['Excellent condition', 'Ready for pickup', 'Research-backed pricing']
+    tags: [],
+    brand: '',
+    model: '',
+    dimensions: '',
+    color: '',
+    style: '',
+    material: ''
   };
 }
 

@@ -8,75 +8,28 @@ import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, Upload, Mic, MicOff, Camera, Copy, Check, Share2 } from "lucide-react"
 import Link from "next/link"
 
+interface Listing {
+  title: string;
+  price: string;
+  category: string;
+  condition: string;
+  description: string;
+  location: string;
+  tags: string[];
+  brand: string;
+  model: string;
+  dimensions: string;
+  color: string;
+  style: string;
+  material: string;
+}
+
 interface AIResponse {
   success?: boolean
   web_search_used?: boolean
-  fallback_used?: boolean
   fallback_mode?: boolean
   search_queries?: string[]
-  endpoint_used?: number
-  comprehensive_data?: {
-    item_identification: {
-      name: string
-      brand: string
-      model: string
-      category: string
-      condition_assessment: string
-    }
-    internet_research: {
-      original_retail_price: string
-      where_sold: string
-      market_research: string
-    }
-    pricing_strategy: {
-      suggested_price: string
-      pricing_rationale: string
-    }
-  }
-  listing: {
-    title: string
-    price: string
-    description: string
-    category: string
-    condition: string
-    features: string[]
-  }
-  result?: {
-    what_i_see: string
-    item_type: string
-    suggested_price: string
-    simple_title: string
-    simple_description: string
-  }
-  fallback?: {
-    what_i_see: string
-    item_type: string
-    suggested_price: string
-    simple_title: string
-    simple_description: string
-  }
-  raw_response?: string
-  // Keep old format for backwards compatibility
-  item_analysis?: {
-    name: string
-    brand: string
-    condition: string
-    key_features: string[]
-  }
-  pricing_strategy?: {
-    market_price: string
-    quick_sale_price: string
-    best_value_price: string
-    rationale: string
-  }
-  comprehensive_listing?: {
-    title: string
-    price: string
-    description: string
-    condition: string
-    category: string
-    tags: string[]
-  }
+  listing: Listing;
 }
 
 export default function CreateListing() {
@@ -88,63 +41,17 @@ export default function CreateListing() {
   const [recordingDuration, setRecordingDuration] = useState(0)
   const [description, setDescription] = useState("")
   const [aiResponse, setAiResponse] = useState<AIResponse | null>(null)
-  const [copiedPlatform, setCopiedPlatform] = useState<string | null>(null)
+  const [copiedField, setCopiedField] = useState<string | null>(null)
   const [processingStatus, setProcessingStatus] = useState("Creating your listing...")
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const recordingTimerRef = useRef<NodeJS.Timeout | null>(null)
 
-  const compressImage = (file: File): Promise<File> => {
-    return new Promise((resolve) => {
-      const canvas = document.createElement('canvas')
-      const ctx = canvas.getContext('2d')!
-      const img = new Image()
-      
-      img.onload = () => {
-        const maxWidth = 1024
-        const maxHeight = 1024
-        let { width, height } = img
-        
-        if (width > height) {
-          if (width > maxWidth) {
-            height = (height * maxWidth) / width
-            width = maxWidth
-          }
-        } else {
-          if (height > maxHeight) {
-            width = (width * maxHeight) / height
-            height = maxHeight
-          }
-        }
-        
-        canvas.width = width
-        canvas.height = height
-        
-        ctx.drawImage(img, 0, 0, width, height)
-        
-        canvas.toBlob((blob) => {
-          const compressedFile = new File([blob!], file.name, {
-            type: 'image/jpeg',
-            lastModified: Date.now(),
-          })
-          resolve(compressedFile)
-        }, 'image/jpeg', 0.8)
-      }
-      
-      img.src = URL.createObjectURL(file)
-    })
-  }
-
-  const handlePhotoUpload = async (file: File) => {
-    try {
-      const compressedFile = await compressImage(file)
-      setUploadedPhoto(compressedFile)
-      setPhotoPreview(URL.createObjectURL(compressedFile))
-      setCurrentStep("recording")
-    } catch (error) {
-      console.error('Error processing image:', error)
-    }
+  const handlePhotoUpload = (file: File) => {
+    setUploadedPhoto(file)
+    setPhotoPreview(URL.createObjectURL(file))
+    setCurrentStep("recording")
   }
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -156,43 +63,31 @@ export default function CreateListing() {
 
   const startRecording = async () => {
     try {
-      console.log('Starting recording...')
-      
-      // Get microphone access
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      
-      // Create MediaRecorder
       const mediaRecorder = new MediaRecorder(stream)
       mediaRecorderRef.current = mediaRecorder
-      
       const audioChunks: BlobPart[] = []
-      
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
           audioChunks.push(event.data)
         }
       }
-      
       mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunks, { type: 'audio/wav' })
+        const audioBlob = new Blob(audioChunks, { type: "audio/wav" })
         setRecording(audioBlob)
-        stream.getTracks().forEach(track => track.stop())
+        stream.getTracks().forEach((track) => track.stop())
       }
-      
       mediaRecorder.onstart = () => {
         setIsRecording(true)
         setRecordingDuration(0)
-        
         recordingTimerRef.current = setInterval(() => {
-          setRecordingDuration(prev => prev + 1)
+          setRecordingDuration((prev) => prev + 1)
         }, 1000)
       }
-      
       mediaRecorder.start()
-      
     } catch (error) {
-      console.error('Error starting recording:', error)
-      alert('Recording failed. Please try using the text input instead.')
+      console.error("Error starting recording:", error)
+      alert("Recording failed. Please try using the text input instead.")
     }
   }
 
@@ -208,17 +103,13 @@ export default function CreateListing() {
 
   const processWithAI = async () => {
     if (!uploadedPhoto) return
-    
     setCurrentStep("processing")
-    
     const statuses = [
-      "Creating your listing... (1-3 minutes)",
       "🔍 Analyzing your photo and description...",
       "💰 Researching local market prices...",
       "✍️ Writing your professional listing...",
-      "✨ Almost ready..."
+      "✨ Almost ready...",
     ]
-    
     let statusIndex = 0
     const statusInterval = setInterval(() => {
       statusIndex = (statusIndex + 1) % statuses.length
@@ -226,86 +117,25 @@ export default function CreateListing() {
     }, 3000)
 
     try {
-      console.log('Starting AI processing...')
-      
       const formData = new FormData()
-      formData.append('image', uploadedPhoto)
-      formData.append('description', description)
+      formData.append("image", uploadedPhoto)
+      formData.append("description", description)
       if (recording) {
-        formData.append('audio', recording, 'audio.wav')
+        formData.append("audio", recording, "audio.wav")
       }
-      
-      const response = await fetch('/api/analyze', {
-        method: 'POST',
+      const response = await fetch("/api/analyze", {
+        method: "POST",
         body: formData,
       })
-
       if (!response.ok) {
-        throw new Error('Failed to analyze image')
+        throw new Error("Failed to analyze image")
       }
-
       const result = await response.json()
-      console.log('Received AI response:', result)
-      
-      // Handle the simplified response format
-      if (result.listing) {
-        result.comprehensive_listing = {
-          title: result.listing.title,
-          price: result.listing.price,
-          description: result.listing.description,
-          condition: result.listing.condition,
-          category: result.listing.category,
-          tags: result.listing.features || []
-        }
-      }
-      
-      // Ensure we have the required structure for backwards compatibility
-      if (!result.comprehensive_listing) {
-        result.comprehensive_listing = {
-          title: (result.item_analysis?.name || 'Item') + ' - Good Condition',
-          price: result.pricing_strategy?.market_price || '$75',
-          description: `Great ${result.item_analysis?.name || 'item'} in good condition!
-
-• Well-maintained from clean, smoke-free home
-• Ready for immediate pickup
-• Cash preferred
-• Serious inquiries only
-
-Moving sale - priced to sell quickly!`,
-          condition: result.item_analysis?.condition || 'Good',
-          category: 'General',
-          tags: ['item', 'sale', 'good-condition']
-        }
-      }
-      
       setAiResponse(result)
       setCurrentStep("results")
-      
     } catch (error) {
-      console.error('Error processing with AI:', error)
-      
-      // Create fallback listing
-      const fallbackListing: AIResponse = {
-        success: false,
-        listing: {
-          title: (description.split(' ').slice(0, 4).join(' ') || 'Item') + ' - Good Condition',
-          price: '$75',
-          description: `${description || 'Great item in good condition!'}
-
-• Well-maintained from clean, smoke-free home
-• Ready for immediate pickup
-• Cash preferred
-• Serious inquiries only
-
-Moving sale - priced to sell quickly!`,
-          condition: 'Good',
-          category: 'General',
-          features: ['item', 'sale', 'good-condition', 'moving', 'local']
-        }
-      }
-      
-      setAiResponse(fallbackListing)
-      setCurrentStep("results")
+      console.error("Error processing with AI:", error)
+      setCurrentStep("results") // Go to results even on error to show fallback
     } finally {
       clearInterval(statusInterval)
     }
@@ -314,12 +144,40 @@ Moving sale - priced to sell quickly!`,
   const formatRecordingTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
     const secs = seconds % 60
-    return `${mins}:${secs.toString().padStart(2, '0')}`
+    return `${mins}:${secs.toString().padStart(2, "0")}`
+  }
+
+  const handleCopy = (text: string, field: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedField(field)
+      setTimeout(() => setCopiedField(null), 2000)
+    })
+  }
+
+  const renderListingField = (label: string, value: string | string[]) => {
+    if (!value || (Array.isArray(value) && value.length === 0)) return null
+    const displayValue = Array.isArray(value) ? value.join(", ") : value
+
+    return (
+      <div className="grid grid-cols-3 gap-4 items-center">
+        <span className="text-sm font-semibold text-slate-600">{label}</span>
+        <div className="col-span-2 bg-slate-50 border border-slate-200 rounded-md px-3 py-2 text-sm text-slate-800">
+          {displayValue}
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handleCopy(displayValue, label)}
+          className="col-start-3 justify-self-end"
+        >
+          {copiedField === label ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
+        </Button>
+      </div>
+    )
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-cyan-50/30">
-      {/* Header */}
       <header className="px-4 py-6 border-b border-slate-200/50 bg-white/60 backdrop-blur-xl">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <Link href="/" className="flex items-center space-x-3 text-slate-700 hover:text-slate-900 transition-colors">
@@ -332,28 +190,16 @@ Moving sale - priced to sell quickly!`,
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="px-4 py-12">
         <div className="max-w-4xl mx-auto">
           <AnimatePresence mode="wait">
-            {/* Step 1: Photo Upload */}
             {currentStep === "upload" && (
-              <motion.div
-                key="upload"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                className="text-center space-y-8"
-              >
+              <motion.div key="upload" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="text-center space-y-8">
                 <div>
                   <h1 className="text-3xl lg:text-4xl font-light text-slate-900 mb-4">Take a photo of your item</h1>
                   <p className="text-lg text-slate-600">Any angle works - our AI will enhance it automatically</p>
                 </div>
-
-                <Card 
-                  className="p-12 border-2 border-dashed border-slate-300 hover:border-cyan-400 transition-colors bg-white/60 backdrop-blur-xl cursor-pointer"
-                  onClick={() => fileInputRef.current?.click()}
-                >
+                <Card className="p-12 border-2 border-dashed border-slate-300 hover:border-cyan-400 transition-colors bg-white/60 backdrop-blur-xl cursor-pointer" onClick={() => fileInputRef.current?.click()}>
                   <div className="space-y-6">
                     <Camera className="w-16 h-16 mx-auto text-slate-400" />
                     <div>
@@ -365,363 +211,153 @@ Moving sale - priced to sell quickly!`,
                       Choose Photo
                     </Button>
                   </div>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    onChange={handleFileSelect}
-                    className="hidden"
-                  />
+                  <input ref={fileInputRef} type="file" accept="image/*" capture="environment" onChange={handleFileSelect} className="hidden" />
                 </Card>
-
                 <div className="text-sm text-slate-500">
                   📱 On mobile? Tap to use your camera directly
                 </div>
               </motion.div>
             )}
 
-            {/* Step 2: Voice Recording */}
             {currentStep === "recording" && (
-              <motion.div
-                key="recording"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                className="space-y-8"
-              >
+              <motion.div key="recording" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-8">
                 <div className="text-center">
                   <h1 className="text-3xl lg:text-4xl font-light text-slate-900 mb-4">Tell us about your item</h1>
                   <p className="text-lg text-slate-600">Speak naturally or type a description</p>
                 </div>
-
                 <div className="grid lg:grid-cols-2 gap-8">
-                  {/* Photo Preview */}
                   <div>
                     <img src={photoPreview} alt="Item" className="w-full rounded-lg shadow-lg" />
                   </div>
-
-                  {/* Voice/Text Input */}
                   <div className="space-y-6">
-                    {/* Voice Recording */}
                     <Card className="p-6 bg-white/80 backdrop-blur-xl">
                       <h3 className="text-lg font-semibold mb-4">🎤 Voice Description (Recommended)</h3>
-                      
                       {!isRecording && !recording && (
-                        <Button
-                          onClick={startRecording}
-                          className="w-full bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white py-4 font-medium"
-                        >
+                        <Button onClick={startRecording} className="w-full bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white py-4 font-medium">
                           <Mic className="w-5 h-5 mr-2" />
                           Start Recording
                         </Button>
                       )}
-
                       {isRecording && (
                         <div className="text-center space-y-4">
-                          <motion.div
-                            className="w-20 h-20 mx-auto bg-red-500 rounded-full flex items-center justify-center"
-                            animate={{ scale: [1, 1.1, 1] }}
-                            transition={{ duration: 1, repeat: Number.POSITIVE_INFINITY }}
-                          >
+                          <motion.div className="w-20 h-20 mx-auto bg-red-500 rounded-full flex items-center justify-center" animate={{ scale: [1, 1.1, 1] }} transition={{ duration: 1, repeat: Number.POSITIVE_INFINITY }}>
                             <MicOff className="w-8 h-8 text-white" />
                           </motion.div>
                           <div className="text-lg font-medium">Recording... {formatRecordingTime(recordingDuration)}</div>
-                          
-                          <Button
-                            onClick={stopRecording}
-                            variant="outline"
-                            className="border-red-300 text-red-600 hover:bg-red-50"
-                          >
+                          <Button onClick={stopRecording} variant="outline" className="border-red-300 text-red-600 hover:bg-red-50">
                             Stop Recording
                           </Button>
                         </div>
                       )}
-
                       {recording && (
                         <div className="space-y-4">
                           <div className="text-center">
                             <div className="text-green-600 font-medium mb-4">✅ Recording saved ({formatRecordingTime(recordingDuration)})</div>
-                            <Button
-                              onClick={() => {
-                                setRecording(null)
-                                setRecordingDuration(0)
-                              }}
-                              variant="outline"
-                              size="sm"
-                            >
+                            <Button onClick={() => { setRecording(null); setRecordingDuration(0); }} variant="outline" size="sm">
                               Record Again
                             </Button>
                           </div>
                         </div>
                       )}
                     </Card>
-
-                    {/* Text Alternative */}
                     <Card className="p-6 bg-white/80 backdrop-blur-xl">
                       <h3 className="text-lg font-semibold mb-4">✏️ Or type a description</h3>
-                      <textarea
-                        value={description}
-                        onChange={(e) => setDescription(e.target.value)}
-                        placeholder="Tell us about your item: condition, where you got it, why you're selling..."
-                        className="w-full h-32 p-4 border border-slate-300 rounded-lg resize-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-                      />
+                      <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Tell us about your item: condition, where you got it, why you're selling..." className="w-full h-32 p-4 border border-slate-300 rounded-lg resize-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent" />
                     </Card>
-
-                    {/* Continue Button */}
-                    <Button
-                      onClick={processWithAI}
-                      disabled={!recording && !description.trim()}
-                      className="w-full bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 disabled:from-gray-300 disabled:to-gray-400 text-white py-4 font-semibold text-lg"
-                    >
+                    <Button onClick={processWithAI} disabled={!recording && !description.trim()} className="w-full bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 disabled:from-gray-300 disabled:to-gray-400 text-white py-4 font-semibold text-lg">
                       Create My Listing ✨
                     </Button>
-                    
-                    {(recording || description.trim()) && (
-                      <div className="text-center text-sm text-slate-600">
-                        {recording && "Voice recording ready"}
-                        {recording && description.trim() && " + "}
-                        {description.trim() && "Text description added"}
-                      </div>
-                    )}
                   </div>
                 </div>
               </motion.div>
             )}
 
-            {/* Step 3: AI Processing */}
             {currentStep === "processing" && (
-              <motion.div
-                key="processing"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="text-center space-y-8"
-              >
+              <motion.div key="processing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-center space-y-8">
                 <div>
                   <h1 className="text-3xl lg:text-4xl font-light text-slate-900 mb-4">Creating your listing</h1>
                   <p className="text-lg text-slate-600">This usually takes 1-3 minutes - we're building you a perfect marketplace listing!</p>
                 </div>
-
                 <div className="space-y-6">
-                  <motion.div
-                    className="w-24 h-24 mx-auto bg-gradient-to-br from-cyan-100 to-orange-100 rounded-full flex items-center justify-center"
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 2, repeat: Number.POSITIVE_INFINITY, ease: "linear" }}
-                  >
+                  <motion.div className="w-24 h-24 mx-auto bg-gradient-to-br from-cyan-100 to-orange-100 rounded-full flex items-center justify-center" animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Number.POSITIVE_INFINITY, ease: "linear" }}>
                     <div className="w-16 h-16 bg-gradient-to-br from-cyan-500 to-orange-500 rounded-full"></div>
                   </motion.div>
-
-                  <motion.div
-                    key={processingStatus}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="text-lg text-slate-700 font-medium"
-                  >
+                  <motion.div key={processingStatus} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="text-lg text-slate-700 font-medium">
                     {processingStatus}
                   </motion.div>
-
-                  <div className="text-sm text-slate-500 space-y-2">
-                    <div>Professional AI analysis takes 1-3 minutes ⏱️</div>
-                    <div className="text-xs text-slate-400">We're researching prices, writing descriptions, and optimizing for marketplaces</div>
-                  </div>
                 </div>
               </motion.div>
             )}
 
-            {/* Step 4: Results */}
-            {currentStep === "results" && aiResponse && (
-              <motion.div
-                key="results"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                className="space-y-8"
-              >
+            {currentStep === "results" && (
+              <motion.div key="results" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-8">
                 <div className="text-center">
                   <h1 className="text-3xl lg:text-4xl font-light text-slate-900 mb-4">🎉 Your listing is ready!</h1>
-                  <p className="text-lg text-slate-600">Copy and paste into any marketplace</p>
+                  <p className="text-lg text-slate-600">Copy the fields below and paste them into any marketplace.</p>
                 </div>
 
-                {/* Simple Listing Card */}
                 <Card className="p-8 bg-white shadow-xl max-w-4xl mx-auto">
                   <div className="grid lg:grid-cols-2 gap-8">
-                    {/* Photo */}
                     <div>
-                      <img
-                        src={photoPreview || "/placeholder.svg"}
-                        alt="Item"
-                        className="w-full rounded-lg shadow-lg"
-                      />
+                      <img src={photoPreview || "/placeholder.svg"} alt="Item" className="w-full rounded-lg shadow-lg" />
+                      {aiResponse?.web_search_used && (
+                        <div className="text-sm mt-4 text-blue-600">
+                          🌐 AI + Google Search Complete
+                          {aiResponse.search_queries && aiResponse.search_queries.length > 0 && (
+                            <div className="text-xs mt-1">
+                              Searched: {aiResponse.search_queries.join(", ")}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
 
-                    {/* Listing Content */}
-                    <div className="space-y-6">
-                      {/* Title and Price */}
-                      <div>
-                        <h2 className="text-2xl font-bold text-slate-900 mb-2">
-                          {aiResponse.comprehensive_listing?.title || 'Professional Listing'}
-                        </h2>
-                        <div className="text-3xl font-bold text-green-600 mb-4">
-                          {aiResponse.comprehensive_listing?.price || '$75'}
-                        </div>
-                        {aiResponse.success ? (
-                          <div className="text-sm mb-4">
-                            {aiResponse.web_search_used ? (
-                              <div className="text-blue-600">
-                                🌐 AI + Google Search Complete
-                                {aiResponse.search_queries && aiResponse.search_queries.length > 0 && (
-                                  <div className="text-xs mt-1">
-                                    Searched: {aiResponse.search_queries.join(', ')}
-                                  </div>
-                                )}
-                              </div>
-                            ) : aiResponse.fallback_mode ? (
-                              <div className="text-orange-600">
-                                🔄 AI Analysis (No Web Search)
-                              </div>
-                            ) : (
-                              <div className="text-green-600">
-                                ✅ AI Analysis Complete
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <div className="text-sm text-orange-600 mb-4">
-                            🔄 Using Smart Fallback
-                          </div>
-                        )}
-
-                        <Badge className="bg-green-100 text-green-700">
-                          {aiResponse.comprehensive_listing?.condition || 'Good Condition'}
-                        </Badge>
-                      </div>
-
-                      {/* Description Box */}
-                      <div className="bg-slate-50 rounded-lg p-4 border">
-                        <h4 className="font-semibold text-slate-900 mb-3">Complete Description:</h4>
-                        <div className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap max-h-48 overflow-y-auto">
-                          {aiResponse.comprehensive_listing?.description || 'Great item in good condition!'}
-                        </div>
-                      </div>
-
-                      {/* Copy Buttons */}
-                      <div className="space-y-3">
-                        {/* Quick Copy Buttons */}
-                        <div className="grid grid-cols-2 gap-3">
-                          <Button
-                            onClick={() => {
-                              const title = aiResponse.comprehensive_listing?.title || 'Professional Listing'
-                              navigator.clipboard.writeText(title)
-                              setCopiedPlatform('title')
-                              setTimeout(() => setCopiedPlatform(null), 1500)
-                            }}
-                            variant="outline"
-                            className="h-12"
-                          >
-                            {copiedPlatform === 'title' ? (
-                              <><Check className="w-4 h-4 mr-2 text-green-600" />Copied!</>
-                            ) : (
-                              <><Copy className="w-4 h-4 mr-2" />Copy Title</>
-                            )}
-                          </Button>
+                    <div className="space-y-4">
+                      {aiResponse?.listing ? (
+                        <>
+                          {renderListingField("Title", aiResponse.listing.title)}
+                          {renderListingField("Price", aiResponse.listing.price)}
+                          {renderListingField("Category", aiResponse.listing.category)}
+                          {renderListingField("Condition", aiResponse.listing.condition)}
+                          {renderListingField("Brand", aiResponse.listing.brand)}
+                          {renderListingField("Model", aiResponse.listing.model)}
+                          {renderListingField("Color", aiResponse.listing.color)}
+                          {renderListingField("Dimensions", aiResponse.listing.dimensions)}
+                          {renderListingField("Material", aiResponse.listing.material)}
+                          {renderListingField("Style", aiResponse.listing.style)}
+                          {renderListingField("Tags", aiResponse.listing.tags)}
                           
-                          <Button
-                            onClick={() => {
-                              const price = aiResponse.comprehensive_listing?.price || '$75'
-                              navigator.clipboard.writeText(price)
-                              setCopiedPlatform('price')
-                              setTimeout(() => setCopiedPlatform(null), 1500)
-                            }}
-                            variant="outline"
-                            className="h-12"
-                          >
-                            {copiedPlatform === 'price' ? (
-                              <><Check className="w-4 h-4 mr-2 text-green-600" />Copied!</>
-                            ) : (
-                              <><Copy className="w-4 h-4 mr-2" />Copy Price</>
-                            )}
-                          </Button>
+                          <div>
+                            <span className="text-sm font-semibold text-slate-600">Description</span>
+                            <div className="mt-1 bg-slate-50 border border-slate-200 rounded-md px-3 py-2 text-sm text-slate-800 whitespace-pre-wrap">
+                              {aiResponse.listing.description}
+                            </div>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleCopy(aiResponse.listing.description, "Description")}
+                              className="mt-2"
+                            >
+                              {copiedField === "Description" ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
+                              <span className="ml-2">Copy Description</span>
+                            </Button>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="text-center text-red-600">
+                          <p>Sorry, we couldn't generate a listing at this time.</p>
+                          <p>Please try again or write a more detailed description.</p>
                         </div>
-                        
-                        {/* Copy Description */}
-                        <Button
-                          onClick={() => {
-                            const description = aiResponse.comprehensive_listing?.description || 'Great item in good condition!'
-                            navigator.clipboard.writeText(description)
-                            setCopiedPlatform('description')
-                            setTimeout(() => setCopiedPlatform(null), 1500)
-                          }}
-                          variant="outline"
-                          className="w-full h-12"
-                        >
-                          {copiedPlatform === 'description' ? (
-                            <><Check className="w-4 h-4 mr-2 text-green-600" />Description Copied!</>
-                          ) : (
-                            <><Copy className="w-4 h-4 mr-2" />Copy Description</>
-                          )}
-                        </Button>
-                        
-                        {/* Copy Everything */}
-                        <Button
-                          onClick={() => {
-                            const title = aiResponse.comprehensive_listing?.title || 'Professional Listing'
-                            const price = aiResponse.comprehensive_listing?.price || '$75'
-                            const description = aiResponse.comprehensive_listing?.description || 'Great item in good condition!'
-                            
-                            const fullListing = `TITLE: ${title}\n\nPRICE: ${price}\n\nDESCRIPTION:\n${description}`
-                            
-                            navigator.clipboard.writeText(fullListing)
-                            setCopiedPlatform('full')
-                            setTimeout(() => setCopiedPlatform(null), 2000)
-                          }}
-                          className="w-full bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white py-4 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 font-semibold text-lg"
-                        >
-                          {copiedPlatform === 'full' ? (
-                            <><Check className="w-5 h-5 mr-2" />Complete Listing Copied!</>
-                          ) : (
-                            <><Copy className="w-5 h-5 mr-2" />Copy Complete Listing</>
-                          )}
-                        </Button>
-                      </div>
+                      )}
                     </div>
                   </div>
                 </Card>
 
-                {/* Quick Instructions */}
-                <div className="text-center space-y-4">
-                  <div className="text-lg font-medium text-slate-900">
-                    📱 Ready to post? Use the buttons above to copy your listing!
-                  </div>
-                  <div className="text-sm text-slate-600 max-w-2xl mx-auto">
-                    <strong>Quick tip:</strong> Go to Facebook Marketplace, Craigslist, or OfferUp, 
-                    click "Create Listing", upload your photo, then paste our professional content. 
-                    Your listing will look amazing!
-                  </div>
-                </div>
-
-                {/* Action Buttons */}
                 <div className="flex justify-center space-x-4">
-                  <Button
-                    onClick={() => {
-                      setCurrentStep("upload")
-                      setUploadedPhoto(null)
-                      setPhotoPreview("")
-                      setRecording(null)
-                      setDescription("")
-                      setAiResponse(null)
-                      setCopiedPlatform(null)
-                    }}
-                    variant="outline"
-                    className="border-slate-300 text-slate-700 px-6 py-3 font-medium"
-                  >
+                  <Button onClick={() => { setCurrentStep("upload"); setAiResponse(null); }} variant="outline" className="border-slate-300 text-slate-700 px-6 py-3 font-medium">
                     📷 Try Another Item
                   </Button>
-
-                  <Button 
-                    variant="outline" 
-                    className="border-slate-300 text-slate-700 bg-transparent px-6 py-3 font-medium"
-                  >
+                  <Button variant="outline" className="border-slate-300 text-slate-700 bg-transparent px-6 py-3 font-medium">
                     <Share2 className="w-4 h-4 mr-2" />
                     Share FlipEasy
                   </Button>
