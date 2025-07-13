@@ -302,12 +302,7 @@ Be thorough, honest, and strategic. The goal is maximum selling success.`
       };
     }
 
-    return NextResponse.json({
-      success: true,
-      data: parsedResponse,
-      ai_model_used: "vertex-ai-gemini-2.5-pro",
-      processing_time: Date.now()
-    });
+    return NextResponse.json(parsedResponse);
 
   } catch (error) {
     console.error('Error in Vertex AI analyze API:', error);

@@ -450,7 +450,39 @@ export default function CreateListing() {
       }
 
       const result = await response.json()
-      setAiResponse(result)
+      console.log('Received AI response:', result)
+      
+      // Handle both old and new response formats
+      let finalResult
+      if (result.data) {
+        // Old format with wrapper
+        finalResult = result.data
+      } else if (result.listings) {
+        // New direct format
+        finalResult = result
+      } else {
+        // Fallback
+        throw new Error('Invalid API response format')
+      }
+      
+      // Ensure listings object exists with all platforms
+      if (!finalResult.listings) {
+        finalResult.listings = {}
+      }
+      
+      // Ensure all platforms exist in listings
+      ['facebook', 'craigslist', 'offerup'].forEach(platform => {
+        if (!finalResult.listings[platform]) {
+          finalResult.listings[platform] = {
+            title: 'Item for Sale',
+            price: '$0',
+            description: 'Great item in good condition!',
+            tags: ['item', 'sale']
+          }
+        }
+      })
+      
+      setAiResponse(finalResult)
       setCurrentStep("results")
       
     } catch (error) {
@@ -815,7 +847,7 @@ export default function CreateListing() {
                         <div className="space-y-4">
                           <ListingSection
                             title="Title"
-                            content={aiResponse.listings[activePlatform]?.title || 'Professional listing title'}
+                            content={aiResponse.listings?.[activePlatform]?.title || 'Professional listing title'}
                             copyLabel="Title"
                             icon={<Copy className="w-4 h-4" />}
                             className="border-blue-200 bg-blue-50/50"
@@ -823,7 +855,7 @@ export default function CreateListing() {
 
                           <ListingSection
                             title="Price"
-                            content={aiResponse.listings[activePlatform]?.price || '$0'}
+                            content={aiResponse.listings?.[activePlatform]?.price || '$0'}
                             copyLabel="Price"
                             icon={<DollarSign className="w-4 h-4" />}
                             className="border-green-200 bg-green-50/50"
@@ -831,7 +863,7 @@ export default function CreateListing() {
 
                           <ListingSection
                             title="Description"
-                            content={typeof aiResponse.listings[activePlatform]?.description === 'string' 
+                            content={typeof aiResponse.listings?.[activePlatform]?.description === 'string' 
                               ? aiResponse.listings[activePlatform].description 
                               : 'Professional description for your item'}
                             copyLabel="Description"
@@ -842,18 +874,22 @@ export default function CreateListing() {
                           <div className="pt-4">
                             <Button
                               onClick={() => {
-                                const listing = aiResponse.listings[activePlatform];
-                                let fullText = `${listing.title}\n\nPrice: ${listing.price}\n\n`;
-                                
-                                if (typeof listing.description === 'object') {
-                                  fullText += Object.values(listing.description).join('\n\n');
+                                const listing = aiResponse.listings?.[activePlatform]
+                                if (listing) {
+                                  let fullText = `${listing.title || 'Item for Sale'}\n\nPrice: ${listing.price || '$0'}\n\n`;
+                                  
+                                  if (typeof listing.description === 'object') {
+                                    fullText += Object.values(listing.description).join('\n\n');
+                                  } else {
+                                    fullText += listing.description || 'Great item for sale!';
+                                  }
+                                  
+                                  navigator.clipboard.writeText(fullText);
+                                  setCopiedPlatform(activePlatform);
+                                  setTimeout(() => setCopiedPlatform(null), 2000);
                                 } else {
-                                  fullText += listing.description;
+                                  alert('No listing data available to copy');
                                 }
-                                
-                                navigator.clipboard.writeText(fullText);
-                                setCopiedPlatform(activePlatform);
-                                setTimeout(() => setCopiedPlatform(null), 2000);
                               }}
                               className="w-full bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 text-white py-4 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 font-semibold text-lg"
                             >
