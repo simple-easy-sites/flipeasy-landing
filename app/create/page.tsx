@@ -138,6 +138,8 @@ export default function CreateListing() {
   const [recordingDuration, setRecordingDuration] = useState(0)
   const [description, setDescription] = useState("")
   const [transcription, setTranscription] = useState("")
+  const [speechRecognition, setSpeechRecognition] = useState<any>(null)
+  const [isListening, setIsListening] = useState(false)
   const [activePlatform, setActivePlatform] = useState<"facebook" | "craigslist" | "offerup">("facebook")
   const [aiResponse, setAiResponse] = useState<AIResponse | null>(null)
   const [copiedPlatform, setCopiedPlatform] = useState<string | null>(null)
@@ -209,6 +211,52 @@ export default function CreateListing() {
   const startRecording = async () => {
     try {
       console.log('Starting recording...')
+      
+      // Initialize speech recognition for live transcription
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+      
+      if (SpeechRecognition) {
+        const recognition = new SpeechRecognition()
+        recognition.continuous = true
+        recognition.interimResults = true
+        recognition.lang = 'en-US'
+        
+        let finalTranscript = ''
+        
+        recognition.onresult = (event: any) => {
+          let interimTranscript = ''
+          
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const transcript = event.results[i][0].transcript
+            if (event.results[i].isFinal) {
+              finalTranscript += transcript + ' '
+            } else {
+              interimTranscript += transcript
+            }
+          }
+          
+          // Update transcription in real-time
+          setTranscription(finalTranscript + interimTranscript)
+        }
+        
+        recognition.onstart = () => {
+          console.log('Speech recognition started')
+          setIsListening(true)
+        }
+        
+        recognition.onend = () => {
+          console.log('Speech recognition ended')
+          setIsListening(false)
+        }
+        
+        recognition.onerror = (event: any) => {
+          console.error('Speech recognition error:', event.error)
+          setIsListening(false)
+        }
+        
+        setSpeechRecognition(recognition)
+        recognition.start()
+      }
       
       // Check if getUserMedia is supported
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -289,11 +337,13 @@ export default function CreateListing() {
           const audioBlob = new Blob(audioChunks, { type: finalMimeType })
           console.log('Created audio blob:', audioBlob.size, 'type:', finalMimeType)
           setRecording(audioBlob)
-          
-          // Convert speech to text
-          await convertSpeechToText(audioBlob)
         }
         stream.getTracks().forEach(track => track.stop())
+        
+        // Stop speech recognition
+        if (speechRecognition) {
+          speechRecognition.stop()
+        }
       }
       
       mediaRecorder.onstart = () => {
@@ -313,6 +363,11 @@ export default function CreateListing() {
           clearInterval(recordingTimerRef.current)
         }
         stream.getTracks().forEach(track => track.stop())
+        
+        // Stop speech recognition on error
+        if (speechRecognition) {
+          speechRecognition.stop()
+        }
       }
       
       console.log('Starting MediaRecorder...')
@@ -329,6 +384,7 @@ export default function CreateListing() {
     } catch (error) {
       console.error('Error starting recording:', error)
       setIsRecording(false)
+      setIsListening(false)
       
       // Show user-friendly error message
       let errorMessage = 'Recording failed. '
@@ -409,20 +465,6 @@ export default function CreateListing() {
     const mins = Math.floor(seconds / 60)
     const secs = seconds % 60
     return `${mins}:${secs.toString().padStart(2, '0')}`
-  }
-
-  const convertSpeechToText = async (audioBlob: Blob) => {
-    try {
-      // Simple placeholder transcription for now
-      // You can replace this with actual speech-to-text API later
-      setTranscription("Your voice recording has been saved. You can add details in the text box below or re-record if needed.")
-      
-      // TODO: Implement actual speech-to-text conversion
-      // For now, we'll just show the recording was successful
-    } catch (error) {
-      console.error('Speech to text conversion failed:', error)
-      setTranscription("Recording saved successfully. Please add details in the text box below.")
-    }
   }
 
   return (
@@ -545,6 +587,17 @@ export default function CreateListing() {
                             <MicOff className="w-8 h-8 text-white" />
                           </motion.div>
                           <div className="text-lg font-medium">Recording... {formatRecordingTime(recordingDuration)}</div>
+                          
+                          {/* Live transcription display */}
+                          {transcription && (
+                            <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                              <div className="text-sm text-green-800">
+                                <strong>Live transcription:</strong>
+                                <div className="mt-1 italic">"{transcription}"</div>
+                              </div>
+                            </div>
+                          )}
+                          
                           <Button
                             onClick={stopRecording}
                             variant="outline"
@@ -683,20 +736,41 @@ export default function CreateListing() {
                   <div className="flex items-start justify-between mb-4">
                     <div>
                       <h2 className="text-2xl font-bold text-slate-900">{aiResponse.item_analysis?.name || 'Your Item'}</h2>
-                      {aiResponse.item_analysis?.brand !== 'Unknown' && (
-                        <p className="text-slate-600 font-medium">{aiResponse.item_analysis.brand} {aiResponse.item_analysis.model !== 'N/A' ? `- ${aiResponse.item_analysis.model}` : ''}</p>
+                      {aiResponse.item_analysis?.brand && aiResponse.item_analysis.brand !== 'Unknown' && (
+                        <p className="text-slate-600 font-medium">
+                          {aiResponse.item_analysis.brand} 
+                          {aiResponse.item_analysis.model && aiResponse.item_analysis.model !== 'N/A' ? ` - ${aiResponse.item_analysis.model}` : ''}
+                        </p>
                       )}
                       <div className="flex items-center space-x-4 mt-2">
                         <Badge variant="secondary" className="bg-green-100 text-green-700">
                           {aiResponse.item_analysis?.condition || 'Good Condition'}
                         </Badge>
+                        {aiResponse.item_analysis?.estimated_retail_price && 
+                         aiResponse.item_analysis.estimated_retail_price !== 'Research needed' && (
+                          <span className="text-sm text-slate-600">
+                            Retail: {aiResponse.item_analysis.estimated_retail_price}
+                          </span>
+                        )}
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-3xl font-bold text-green-600">{aiResponse.pricing_strategy?.market_price || '$0'}</div>
+                      <div className="text-3xl font-bold text-green-600">
+                        {aiResponse.pricing_strategy?.market_price || '$0'}
+                      </div>
                       <div className="text-sm text-slate-600">Recommended Price</div>
                     </div>
                   </div>
+                  
+                  {aiResponse.item_analysis?.key_features && aiResponse.item_analysis.key_features.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {aiResponse.item_analysis.key_features.map((feature: string, index: number) => (
+                        <Badge key={index} variant="outline" className="bg-white/60">
+                          {feature}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
                 </Card>
 
                 {/* Platform Tabs */}
