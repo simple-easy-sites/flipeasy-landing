@@ -138,10 +138,10 @@ GOOGLE_SERVICE_ACCOUNT_KEY=[Your complete JSON service account key]
 {
   "type": "service_account",
   "project_id": "gen-lang-client-0477299242",
-  "private_key_id": "2fa8d1e5d0179b8b87a161be99dd0e2298a430e4",
-  "private_key": "-----BEGIN PRIVATE KEY-----\n[Your private key]\n-----END PRIVATE KEY-----\n",
+  "private_key_id": "[REDACTED]",
+  "private_key": "-----BEGIN PRIVATE KEY-----\n[REDACTED]\n-----END PRIVATE KEY-----\n",
   "client_email": "vertex-ai-user@gen-lang-client-0477299242.iam.gserviceaccount.com",
-  "client_id": "115433364273890289148",
+  "client_id": "[REDACTED]",
   "auth_uri": "https://accounts.google.com/o/oauth2/auth",
   "token_uri": "https://oauth2.googleapis.com/token",
   "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
