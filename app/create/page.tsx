@@ -9,6 +9,24 @@ import { ArrowLeft, Upload, Mic, MicOff, Camera, Copy, Check, Share2 } from "luc
 import Link from "next/link"
 
 interface AIResponse {
+  success?: boolean
+  endpoint_used?: number
+  result?: {
+    what_i_see: string
+    item_type: string
+    suggested_price: string
+    simple_title: string
+    simple_description: string
+  }
+  fallback?: {
+    what_i_see: string
+    item_type: string
+    suggested_price: string
+    simple_title: string
+    simple_description: string
+  }
+  raw_response?: string
+  // Keep old format for backwards compatibility
   item_analysis?: {
     name: string
     brand: string
@@ -227,7 +245,26 @@ export default function CreateListing() {
       const result = await response.json()
       console.log('Received AI response:', result)
       
-      // Ensure we have the required structure
+      // Convert new format to old format for display
+      const listing = result.result || result.fallback;
+      if (listing && !result.comprehensive_listing) {
+        result.comprehensive_listing = {
+          title: listing.simple_title,
+          price: listing.suggested_price,
+          description: listing.simple_description,
+          condition: 'Good',
+          category: 'General',
+          tags: ['item', 'sale', 'good-condition']
+        }
+        result.item_analysis = {
+          name: listing.item_type,
+          brand: 'Unknown',
+          condition: 'Good',
+          key_features: ['Well-maintained']
+        }
+      }
+      
+      // Ensure we have the required structure for backwards compatibility
       if (!result.comprehensive_listing) {
         result.comprehensive_listing = {
           title: (result.item_analysis?.name || 'Item') + ' - Good Condition',
@@ -254,17 +291,20 @@ Moving sale - priced to sell quickly!`,
       
       // Create fallback listing
       const fallbackListing = {
-        item_analysis: {
-          name: description.split(' ').slice(0, 3).join(' ') || 'Household Item',
-          brand: 'Unknown',
-          condition: 'Good',
-          key_features: ['Well-maintained', 'Good condition']
-        },
-        pricing_strategy: {
-          market_price: '$75',
-          quick_sale_price: '$60',
-          best_value_price: '$90',
-          rationale: 'Competitive pricing for quick sale'
+        success: false,
+        fallback: {
+          what_i_see: 'Unable to analyze image',
+          item_type: description.split(' ').slice(0, 3).join(' ') || 'Household Item',
+          suggested_price: '$75',
+          simple_title: (description.split(' ').slice(0, 4).join(' ') || 'Item') + ' - Good Condition',
+          simple_description: `${description || 'Great item in good condition!'}
+
+• Well-maintained from clean, smoke-free home
+• Ready for immediate pickup
+• Cash preferred
+• Serious inquiries only
+
+Moving sale - priced to sell quickly!`
         },
         comprehensive_listing: {
           title: (description.split(' ').slice(0, 4).join(' ') || 'Item') + ' - Good Condition',
@@ -573,6 +613,11 @@ Moving sale - priced to sell quickly!`,
                         <div className="text-3xl font-bold text-green-600 mb-4">
                           {aiResponse.comprehensive_listing?.price || '$75'}
                         </div>
+                        {aiResponse.success && (
+                          <div className="text-sm text-green-600 mb-4">
+                            ✅ AI Analysis Successful (Endpoint {aiResponse.endpoint_used})
+                          </div>
+                        )}
                         <Badge className="bg-green-100 text-green-700">
                           {aiResponse.comprehensive_listing?.condition || 'Good Condition'}
                         </Badge>

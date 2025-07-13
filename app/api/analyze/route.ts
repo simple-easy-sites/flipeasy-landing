@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { GoogleAuth } from 'google-auth-library';
 
 export async function POST(request: NextRequest) {
   try {
@@ -8,9 +7,9 @@ export async function POST(request: NextRequest) {
     const userDescription = formData.get('description') as string || '';
     const transcription = formData.get('transcription') as string || '';
     
-    console.log('=== DEBUGGING INFO ===');
-    console.log('Image file:', imageFile?.name, imageFile?.size, imageFile?.type);
-    console.log('User description:', userDescription);
+    console.log('=== SIMPLE DEBUG ===');
+    console.log('Image:', !!imageFile, imageFile?.size);
+    console.log('Description:', userDescription);
     console.log('Transcription:', transcription);
     
     if (!imageFile) {
@@ -21,59 +20,26 @@ export async function POST(request: NextRequest) {
     const bytes = await imageFile.arrayBuffer();
     const base64Image = Buffer.from(bytes).toString('base64');
     
-    // Get Google Cloud credentials
-    const credentialsJson = process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON;
-    const projectId = process.env.GOOGLE_CLOUD_PROJECT_ID;
+    const apiKey = process.env.GEMINI_API_KEY;
+    console.log('API Key exists:', !!apiKey);
     
-    console.log('Credentials exist:', !!credentialsJson);
-    console.log('Project ID:', projectId);
-    
-    if (!credentialsJson || !projectId) {
-      throw new Error('Google Cloud credentials not configured');
+    if (!apiKey) {
+      return NextResponse.json({ error: 'No API key configured' }, { status: 500 });
     }
     
-    // Parse credentials
-    const credentials = JSON.parse(credentialsJson);
-    
-    // Create Google Auth client
-    const auth = new GoogleAuth({
-      credentials: credentials,
-      projectId: projectId,
-      scopes: ['https://www.googleapis.com/auth/cloud-platform']
-    });
-    
-    // Get access token
-    const authClient = await auth.getClient();
-    const accessToken = await authClient.getAccessToken();
-    
-    console.log('=== GOOGLE CLOUD AUTH ===');
-    console.log('Auth client created:', !!authClient);
-    console.log('Access token obtained:', !!accessToken.token);
-    
-    // Simplified prompt for Vertex AI Gemini
-    const prompt = `Analyze this image and create a detailed marketplace listing. Look at the image carefully and identify what item this is, its condition, materials, and features.
+    // SIMPLE prompt that should work
+    const prompt = `Look at this image and tell me what you see. User description: "${userDescription}"
 
-User says: "${userDescription} ${transcription}"
-
-Please respond with a JSON object in this exact format:
+Respond with this JSON format:
 {
-  "item_name": "What is this item? (be specific - brand, model if visible)",
-  "category": "Furniture/Electronics/Clothing/etc",
-  "condition": "New/Like New/Good/Fair/Poor", 
-  "price_suggestion": "$XXX",
-  "detailed_description": "Professional description with specific details you can see in the image",
-  "key_features": ["feature1", "feature2", "feature3"],
-  "materials_colors": "What materials and colors do you see?",
-  "dimensions_estimate": "Approximate size based on what you see",
-  "facebook_title": "Title optimized for Facebook Marketplace",
-  "facebook_description": "Casual, friendly description for Facebook",
-  "craigslist_title": "Professional title for Craigslist", 
-  "craigslist_description": "Detailed description for Craigslist"
-}
+  "what_i_see": "Describe exactly what you see in the image",
+  "item_type": "What type of item is this?",
+  "suggested_price": "$50",
+  "simple_title": "Item Name - Good Condition",
+  "simple_description": "Basic description for selling"
+}`;
 
-Be specific about what you actually see in the image. Don't make generic assumptions.`;
-
-    const geminiRequest = {
+    const requestBody = {
       contents: [{
         parts: [
           { text: prompt },
@@ -86,97 +52,94 @@ Be specific about what you actually see in the image. Don't make generic assumpt
         ]
       }],
       generationConfig: {
-        temperature: 0.3,
-        topK: 20,
-        topP: 0.8,
-        maxOutputTokens: 2048,
+        temperature: 0.1,
+        maxOutputTokens: 1024
       }
     };
 
-    console.log('=== SENDING TO VERTEX AI GEMINI ===');
-    console.log('Project ID:', projectId);
-    console.log('Image size:', base64Image.length, 'characters');
+    console.log('=== TRYING SIMPLE GEMINI CALL ===');
     
-    // Use Vertex AI endpoint with proper authentication
-    const vertexAiUrl = `https://us-central1-aiplatform.googleapis.com/v1/projects/${projectId}/locations/us-central1/publishers/google/models/gemini-1.5-pro:generateContent`;
+    // Try different endpoints to see which works
+    const endpoints = [
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro-vision:generateContent?key=${apiKey}`
+    ];
     
-    const response = await fetch(vertexAiUrl, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken.token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(geminiRequest)
+    for (let i = 0; i < endpoints.length; i++) {
+      console.log(`Trying endpoint ${i + 1}:`, endpoints[i].split('?')[0]);
+      
+      try {
+        const response = await fetch(endpoints[i], {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestBody)
+        });
+
+        console.log(`Response ${i + 1}:`, response.status, response.statusText);
+
+        if (response.ok) {
+          const result = await response.json();
+          const text = result.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          
+          console.log('SUCCESS! Got response:', text.substring(0, 200));
+          
+          // Try to parse JSON
+          try {
+            const jsonMatch = text.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+              const parsed = JSON.parse(jsonMatch[0]);
+              return NextResponse.json({
+                success: true,
+                endpoint_used: i + 1,
+                result: parsed
+              });
+            }
+          } catch (e) {
+            console.log('JSON parse failed, returning raw text');
+          }
+          
+          // Return raw response if JSON parsing fails
+          return NextResponse.json({
+            success: true,
+            endpoint_used: i + 1,
+            raw_response: text,
+            fallback: {
+              what_i_see: text,
+              item_type: userDescription || "Unknown item",
+              suggested_price: "$50",
+              simple_title: `${userDescription || "Item"} - Good Condition`,
+              simple_description: text || `${userDescription} in good condition. Ready for pickup!`
+            }
+          });
+        } else {
+          const errorText = await response.text();
+          console.log(`Endpoint ${i + 1} failed:`, errorText);
+        }
+      } catch (error) {
+        console.log(`Endpoint ${i + 1} error:`, error);
+      }
+    }
+    
+    // If all endpoints fail
+    return NextResponse.json({
+      error: 'All Gemini endpoints failed',
+      fallback: {
+        what_i_see: "Image analysis not available",
+        item_type: userDescription || "Unknown item",
+        suggested_price: "$50",
+        simple_title: `${userDescription || "Item"} - Good Condition`,
+        simple_description: `${userDescription || "Item"} in good condition. Ready for pickup!`
+      }
     });
 
-    console.log('=== VERTEX AI RESPONSE ===');
-    console.log('Status:', response.status, response.statusText);
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Vertex AI error details:', errorText);
-      throw new Error(`Vertex AI error: ${response.status} - ${errorText}`);
-    }
-
-    const result = await response.json();
-    console.log('=== RAW VERTEX AI RESULT ===');
-    console.log('Full result structure:', JSON.stringify(result, null, 2));
-    
-    const text = result.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    console.log('=== EXTRACTED TEXT ===');
-    console.log('Text length:', text.length);
-    console.log('Full text:', text);
-    
-    // Try to parse JSON from the response
-    let parsedResponse;
-    try {
-      // Look for JSON in the response
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        console.log('=== FOUND JSON ===');
-        console.log('JSON string:', jsonMatch[0]);
-        parsedResponse = JSON.parse(jsonMatch[0]);
-        console.log('=== PARSED SUCCESSFULLY ===');
-      } else {
-        console.log('=== NO JSON FOUND - USING FALLBACK ===');
-        throw new Error('No JSON found in Vertex AI response');
-      }
-    } catch (parseError) {
-      console.error('=== JSON PARSE ERROR ===');
-      console.error('Parse error:', parseError);
-      console.error('Trying to parse:', text);
-      
-      // Create a more intelligent fallback based on the actual image analysis
-      parsedResponse = {
-        item_name: "ANALYSIS FAILED - Mirror or Reflective Surface", 
-        category: "Home & Garden",
-        condition: "Good", 
-        price_suggestion: "$75",
-        detailed_description: `AI analysis temporarily unavailable. Based on image: appears to be a large mirror or reflective surface. Clean condition visible. User description: "${userDescription}". Please manually review and adjust details.`,
-        key_features: ["Large reflective surface", "Clean appearance", "Ready for pickup"],
-        materials_colors: "Glass and frame materials",
-        dimensions_estimate: "Large format",
-        facebook_title: "Large Mirror - Good Condition",
-        facebook_description: `Great condition mirror from clean home. ${userDescription}. Ready for pickup!`,
-        craigslist_title: "Large Mirror - Good Condition - $75", 
-        craigslist_description: `For Sale: Large Mirror\n\nCondition: Good\nDetails: ${userDescription}\n\nCash only, pickup required.`
-      };
-    }
-
-    console.log('=== FINAL RESPONSE ===');
-    console.log('Sending back:', JSON.stringify(parsedResponse, null, 2));
-    
-    return NextResponse.json(parsedResponse);
-
   } catch (error) {
-    console.error('=== CRITICAL ERROR ===');
-    console.error('Error details:', error);
-    return NextResponse.json(
-      { 
-        error: 'Failed to analyze item',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      }, 
-      { status: 500 }
-    );
+    console.error('Critical error:', error);
+    return NextResponse.json({
+      error: 'Failed to process request',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
 }
