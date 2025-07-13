@@ -12,6 +12,8 @@ interface AIResponse {
   success?: boolean
   web_search_used?: boolean
   fallback_used?: boolean
+  fallback_mode?: boolean
+  search_queries?: string[]
   endpoint_used?: number
   comprehensive_data?: {
     item_identification: {
@@ -85,7 +87,6 @@ export default function CreateListing() {
   const [isRecording, setIsRecording] = useState(false)
   const [recordingDuration, setRecordingDuration] = useState(0)
   const [description, setDescription] = useState("")
-  const [transcription, setTranscription] = useState("")
   const [aiResponse, setAiResponse] = useState<AIResponse | null>(null)
   const [copiedPlatform, setCopiedPlatform] = useState<string | null>(null)
   const [processingStatus, setProcessingStatus] = useState("Creating your listing...")
@@ -156,35 +157,6 @@ export default function CreateListing() {
   const startRecording = async () => {
     try {
       console.log('Starting recording...')
-      
-      // Initialize speech recognition
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
-      
-      if (SpeechRecognition) {
-        const recognition = new SpeechRecognition()
-        recognition.continuous = true
-        recognition.interimResults = true
-        recognition.lang = 'en-US'
-        
-        let finalTranscript = ''
-        
-        recognition.onresult = (event: any) => {
-          let interimTranscript = ''
-          
-          for (let i = event.resultIndex; i < event.results.length; i++) {
-            const transcript = event.results[i][0].transcript
-            if (event.results[i].isFinal) {
-              finalTranscript += transcript + ' '
-            } else {
-              interimTranscript += transcript
-            }
-          }
-          
-          setTranscription(finalTranscript + interimTranscript)
-        }
-        
-        recognition.start()
-      }
       
       // Get microphone access
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
@@ -259,7 +231,9 @@ export default function CreateListing() {
       const formData = new FormData()
       formData.append('image', uploadedPhoto)
       formData.append('description', description)
-      formData.append('transcription', transcription)
+      if (recording) {
+        formData.append('audio', recording, 'audio.wav')
+      }
       
       const response = await fetch('/api/analyze', {
         method: 'POST',
@@ -311,23 +285,9 @@ Moving sale - priced to sell quickly!`,
       console.error('Error processing with AI:', error)
       
       // Create fallback listing
-      const fallbackListing = {
+      const fallbackListing: AIResponse = {
         success: false,
-        fallback: {
-          what_i_see: 'Unable to analyze image',
-          item_type: description.split(' ').slice(0, 3).join(' ') || 'Household Item',
-          suggested_price: '$75',
-          simple_title: (description.split(' ').slice(0, 4).join(' ') || 'Item') + ' - Good Condition',
-          simple_description: `${description || 'Great item in good condition!'}
-
-• Well-maintained from clean, smoke-free home
-• Ready for immediate pickup
-• Cash preferred
-• Serious inquiries only
-
-Moving sale - priced to sell quickly!`
-        },
-        comprehensive_listing: {
+        listing: {
           title: (description.split(' ').slice(0, 4).join(' ') || 'Item') + ' - Good Condition',
           price: '$75',
           description: `${description || 'Great item in good condition!'}
@@ -340,7 +300,7 @@ Moving sale - priced to sell quickly!`
 Moving sale - priced to sell quickly!`,
           condition: 'Good',
           category: 'General',
-          tags: ['item', 'sale', 'good-condition', 'moving', 'local']
+          features: ['item', 'sale', 'good-condition', 'moving', 'local']
         }
       }
       
@@ -468,15 +428,6 @@ Moving sale - priced to sell quickly!`,
                           </motion.div>
                           <div className="text-lg font-medium">Recording... {formatRecordingTime(recordingDuration)}</div>
                           
-                          {transcription && (
-                            <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-                              <div className="text-sm text-green-800">
-                                <strong>Live transcription:</strong>
-                                <div className="mt-1 italic">"{transcription}"</div>
-                              </div>
-                            </div>
-                          )}
-                          
                           <Button
                             onClick={stopRecording}
                             variant="outline"
@@ -495,7 +446,6 @@ Moving sale - priced to sell quickly!`,
                               onClick={() => {
                                 setRecording(null)
                                 setRecordingDuration(0)
-                                setTranscription("")
                               }}
                               variant="outline"
                               size="sm"
@@ -503,25 +453,6 @@ Moving sale - priced to sell quickly!`,
                               Record Again
                             </Button>
                           </div>
-                          
-                          {transcription && (
-                            <div className="mt-4 p-4 bg-slate-50 rounded-lg border">
-                              <h4 className="font-semibold text-slate-900 text-sm mb-2">What you said:</h4>
-                              <div className="text-sm text-slate-700 leading-relaxed">
-                                {transcription.split('.').filter(sentence => sentence.trim()).map((sentence, index) => (
-                                  <p key={index} className="mb-2">• {sentence.trim()}.</p>
-                                ))}
-                              </div>
-                              <Button
-                                onClick={() => setDescription(transcription)}
-                                size="sm"
-                                variant="outline"
-                                className="mt-2"
-                              >
-                                Copy to Text Box
-                              </Button>
-                            </div>
-                          )}
                         </div>
                       )}
                     </Card>

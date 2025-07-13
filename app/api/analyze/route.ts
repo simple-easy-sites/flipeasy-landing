@@ -4,22 +4,60 @@ export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
     const imageFile = formData.get('image') as File;
-    const userDescription = formData.get('description') as string || '';
+    const audioFile = formData.get('audio') as File | null;
+    let userDescription = formData.get('description') as string || '';
     
     console.log('=== PROCESSING WITH GOOGLE SEARCH GROUNDING ===');
     console.log('Image:', imageFile?.name, imageFile?.size);
     console.log('Description:', userDescription);
-    
+    console.log('Audio:', audioFile?.name, audioFile?.size);
+
     if (!imageFile) {
       return NextResponse.json({ error: 'No image provided' }, { status: 400 });
     }
 
-    const bytes = await imageFile.arrayBuffer();
-    const base64Image = Buffer.from(bytes).toString('base64');
+    const imageBytes = await imageFile.arrayBuffer();
+    const base64Image = Buffer.from(imageBytes).toString('base64');
     
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
       return NextResponse.json({ error: 'API key not configured' }, { status: 500 });
+    }
+
+    // If there's an audio file, transcribe it and prepend it to the description
+    if (audioFile) {
+      try {
+        console.log('Transcribing audio...');
+        const audioBytes = await audioFile.arrayBuffer();
+        const base64Audio = Buffer.from(audioBytes).toString('base64');
+
+        const transcriptionResponse = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-latest:generateContent?key=${apiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{
+                parts: [
+                  { text: "Transcribe this audio recording of a user describing an item for sale." },
+                  { inline_data: { mime_type: audioFile.type, data: base64Audio } }
+                ]
+              }]
+            })
+          }
+        );
+
+        if (transcriptionResponse.ok) {
+          const transcriptionResult = await transcriptionResponse.json();
+          const transcribedText = transcriptionResult.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          console.log('Transcription successful:', transcribedText);
+          userDescription = transcribedText + '\n\n' + userDescription;
+        } else {
+          console.error('Audio transcription failed:', await transcriptionResponse.text());
+        }
+      } catch (transcriptionError) {
+        console.error('Error during transcription:', transcriptionError);
+      }
     }
     
     // ENHANCED PROMPT FOR WEB SEARCH + IMAGE ANALYSIS
@@ -103,7 +141,7 @@ CRITICAL: Use Google Search to find real information about this specific item. I
     console.log('Making API call with Google Search grounding...');
     
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-latest:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -181,7 +219,7 @@ CRITICAL: Use Google Search to find real information about this specific item. I
     
     return NextResponse.json({
       success: false,
-      listing: createBasicFallback(userDescription),
+      listing: createBasicFallback(),
       error: 'Service temporarily unavailable'
     });
   }
@@ -198,7 +236,7 @@ async function fallbackWithoutSearch(apiKey: string, originalRequest: any, userD
   
   try {
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-latest:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -223,7 +261,7 @@ async function fallbackWithoutSearch(apiKey: string, originalRequest: any, userD
   
   return NextResponse.json({
     success: false,
-    listing: createBasicFallback(userDescription),
+    listing: createBasicFallback(),
     error: 'Analysis service unavailable'
   });
 }
@@ -279,13 +317,11 @@ ${groundingMetadata ? 'Price based on current market research.' : 'Competitively
 }
 
 // Basic fallback when everything fails
-function createBasicFallback(userDescription: string) {
-  const itemName = userDescription.split(' ').slice(0, 3).join(' ') || 'Quality Item';
-  
+function createBasicFallback() {
   return {
-    title: `${itemName} - Excellent Condition`,
+    title: 'Quality Item - Excellent Condition',
     price: '$75',
-    description: `${userDescription || 'Quality item in excellent condition.'}
+    description: `Quality item in excellent condition.
 
 • Well-maintained and cared for
 • From clean, smoke-free home
