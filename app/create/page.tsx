@@ -463,55 +463,17 @@ export default function CreateListing() {
       statusIndex = (statusIndex + 1) % statuses.length
       setProcessingStatus(statuses[statusIndex])
     }, 3000) // Slower status changes
-    
-    // Add timeout protection (2 minutes max)
-    let timeoutId: NodeJS.Timeout;
-    timeoutId = setTimeout(() => {
-      clearInterval(statusInterval);
-      console.warn('AI processing timeout - providing fallback');
-      
-      // Create timeout fallback
-      const timeoutListing = {
-        item_analysis: {
-          name: description.split(' ').slice(0, 3).join(' ') || 'Household Item',
-          brand: 'Unknown',
-          condition: 'Good',
-          category: 'General',
-          key_features: ['Well-maintained', 'Good condition']
-        },
-        pricing_strategy: {
-          market_price: '$75',
-          quick_sale_price: '$60',
-          best_value_price: '$90'
-        },
-        comprehensive_listing: {
-          title: (description.split(' ').slice(0, 4).join(' ') || 'Item') + ' - Good Condition',
-          price: '$75',
-          description: `${description || 'Great item in good condition!'}
-
-• Well-maintained item
-• Ready for pickup
-• Cash preferred
-
-Moving sale - need gone ASAP!`,
-          category: 'General',
-          condition: 'Good',
-          tags: ['item', 'sale', 'local'],
-          specifications: { brand: 'TBD', condition: 'Good' }
-        }
-      };
-      
-      setAiResponse(timeoutListing);
-      setCurrentStep("results");
-      alert('⏰ Processing took longer than expected. We\'ve created a basic listing you can customize!');
-    }, 120000); // 2 minute timeout
 
     try {
+      console.log('Starting AI processing...')
+      
       const formData = new FormData()
       formData.append('image', uploadedPhoto)
       formData.append('description', description)
       formData.append('transcription', transcription) // Add live transcription
-
+      
+      console.log('Sending request to API...')
+      
       const response = await fetch('/api/analyze', {
         method: 'POST',
         body: formData,
@@ -533,8 +495,8 @@ Moving sale - need gone ASAP!`,
       if (!finalResult.comprehensive_listing) {
         console.warn('No comprehensive_listing in response, creating fallback');
         finalResult.comprehensive_listing = {
-          title: finalResult.item_analysis?.name + ' - Good Condition' || 'Item for Sale',
-          price: finalResult.pricing_strategy?.recommended_price || '$75',
+          title: (finalResult.item_analysis?.name || 'Item') + ' - Good Condition',
+          price: finalResult.pricing_strategy?.recommended_price || finalResult.pricing_strategy?.market_price || '$75',
           description: 'Great item in good condition! Well-maintained from smoke-free home.',
           category: finalResult.item_analysis?.category || 'General',
           condition: finalResult.item_analysis?.condition || 'Good',
@@ -547,14 +509,12 @@ Moving sale - need gone ASAP!`,
         };
       }
       
+      console.log('Processing completed successfully!')
       setAiResponse(finalResult)
       setCurrentStep("results")
       
     } catch (error) {
       console.error('Error processing with AI:', error);
-      
-      // Show user-friendly error and provide fallback
-      alert('⚠️ Processing took longer than expected. We\'ve created a basic listing for you to customize!');
       
       // Create fallback listing based on user input
       const fallbackListing = {
@@ -593,11 +553,11 @@ Moving sale - priced to sell quickly!`,
         }
       };
       
+      console.log('Using fallback listing due to error')
       setAiResponse(fallbackListing);
       setCurrentStep("results");
     } finally {
       clearInterval(statusInterval);
-      clearTimeout(timeoutId); // Clear timeout when done
     }
   }
 
@@ -625,7 +585,324 @@ Moving sale - priced to sell quickly!`,
       {/* Main Content */}
       <main className="px-4 py-12">
         <div className="max-w-4xl mx-auto">
-          <AnimatePresence mode="wait">
+                      {isRecording && (
+                        <div className="text-center space-y-4">
+                          <motion.div
+                            className="w-20 h-20 mx-auto bg-red-500 rounded-full flex items-center justify-center"
+                            animate={{ scale: [1, 1.1, 1] }}
+                            transition={{ duration: 1, repeat: Number.POSITIVE_INFINITY }}
+                          >
+                            <MicOff className="w-8 h-8 text-white" />
+                          </motion.div>
+                          <div className="text-lg font-medium">Recording... {formatRecordingTime(recordingDuration)}</div>
+                          
+                          {/* Live transcription display */}
+                          {transcription && (
+                            <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                              <div className="text-sm text-green-800">
+                                <strong>Live transcription:</strong>
+                                <div className="mt-1 italic">"{transcription}"</div>
+                              </div>
+                            </div>
+                          )}
+                          
+                          <Button
+                            onClick={stopRecording}
+                            variant="outline"
+                            className="border-red-300 text-red-600 hover:bg-red-50"
+                          >
+                            Stop Recording
+                          </Button>
+                        </div>
+                      )}
+
+                      {recording && (
+                        <div className="space-y-4">
+                          <div className="text-center">
+                            <div className="text-green-600 font-medium mb-4">✅ Recording saved ({formatRecordingTime(recordingDuration)})</div>
+                            <Button
+                              onClick={() => {
+                                setRecording(null)
+                                setRecordingDuration(0)
+                                setTranscription("")
+                              }}
+                              variant="outline"
+                              size="sm"
+                            >
+                              Record Again
+                            </Button>
+                          </div>
+                          
+                          {/* Transcription Display */}
+                          {transcription && (
+                            <div className="mt-4 p-4 bg-slate-50 rounded-lg border">
+                              <h4 className="font-semibold text-slate-900 text-sm mb-2">What you said:</h4>
+                              <div className="text-sm text-slate-700 leading-relaxed">
+                                {transcription.split('.').filter(sentence => sentence.trim()).map((sentence, index) => (
+                                  <p key={index} className="mb-2">• {sentence.trim()}.</p>
+                                ))}
+                              </div>
+                              <Button
+                                onClick={() => setDescription(transcription)}
+                                size="sm"
+                                variant="outline"
+                                className="mt-2"
+                              >
+                                Copy to Text Box
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </Card>
+
+                    {/* Text Alternative */}
+                    <Card className="p-6 bg-white/80 backdrop-blur-xl">
+                      <h3 className="text-lg font-semibold mb-4">✏️ Or type a description</h3>
+                      <textarea
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        placeholder="Tell us about your item: condition, where you got it, why you're selling..."
+                        className="w-full h-32 p-4 border border-slate-300 rounded-lg resize-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                      />
+                    </Card>
+
+                    {/* Continue Button */}
+                    <Button
+                      onClick={processWithAI}
+                      disabled={!recording && !description.trim()}
+                      className="w-full bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 disabled:from-gray-300 disabled:to-gray-400 text-white py-4 font-semibold text-lg"
+                    >
+                      Create My Listings ✨
+                    </Button>
+                    
+                    {(recording || description.trim()) && (
+                      <div className="text-center text-sm text-slate-600">
+                        {recording && "Voice recording ready"}
+                        {recording && description.trim() && " + "}
+                        {description.trim() && "Text description added"}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {/* Step 3: AI Processing - KEEP EXISTING */}
+            {currentStep === "processing" && (
+              <motion.div
+                key="processing"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="text-center space-y-8"
+              >
+                <div>
+                  <h1 className="text-3xl lg:text-4xl font-light text-slate-900 mb-4">Creating your listings</h1>
+                  <p className="text-lg text-slate-600">This usually takes 1-3 minutes - we're building you perfect marketplace listings!</p>
+                </div>
+
+                <div className="space-y-6">
+                  <motion.div
+                    className="w-24 h-24 mx-auto bg-gradient-to-br from-cyan-100 to-orange-100 rounded-full flex items-center justify-center"
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 2, repeat: Number.POSITIVE_INFINITY, ease: "linear" }}
+                  >
+                    <div className="w-16 h-16 bg-gradient-to-br from-cyan-500 to-orange-500 rounded-full"></div>
+                  </motion.div>
+
+                  <motion.div
+                    key={processingStatus}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="text-lg text-slate-700 font-medium"
+                  >
+                    {processingStatus}
+                  </motion.div>
+
+                  <div className="text-sm text-slate-500 space-y-2">
+                    <div>Professional AI analysis takes 1-3 minutes ⏱️</div>
+                    <div className="text-xs text-slate-400">We're researching prices, writing descriptions, and optimizing for multiple platforms</div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {/* Step 4: SIMPLIFIED RESULTS */}
+            {currentStep === "results" && aiResponse && (
+              <motion.div
+                key="results"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="space-y-8"
+              >
+                <div className="text-center">
+                  <h1 className="text-3xl lg:text-4xl font-light text-slate-900 mb-4">🎉 Your listing is ready!</h1>
+                  <p className="text-lg text-slate-600">Copy and paste into any marketplace</p>
+                </div>
+
+                {/* Simple Listing Card */}
+                <Card className="p-8 bg-white shadow-xl max-w-4xl mx-auto">
+                  <div className="grid lg:grid-cols-2 gap-8">
+                    {/* Photo */}
+                    <div>
+                      <img
+                        src={photoPreview || "/placeholder.svg"}
+                        alt="Item"
+                        className="w-full rounded-lg shadow-lg"
+                      />
+                    </div>
+
+                    {/* Listing Content */}
+                    <div className="space-y-6">
+                      {/* Title and Price */}
+                      <div>
+                        <h2 className="text-2xl font-bold text-slate-900 mb-2">
+                          {aiResponse.comprehensive_listing?.title || (aiResponse.item_analysis?.name + ' - Good Condition') || 'Professional Listing'}
+                        </h2>
+                        <div className="text-3xl font-bold text-green-600 mb-4">
+                          {aiResponse.comprehensive_listing?.price || aiResponse.pricing_strategy?.market_price || '$75'}
+                        </div>
+                        <Badge className="bg-green-100 text-green-700">
+                          {aiResponse.comprehensive_listing?.condition || aiResponse.item_analysis?.condition || 'Good Condition'}
+                        </Badge>
+                      </div>
+
+                      {/* Description Box */}
+                      <div className="bg-slate-50 rounded-lg p-4 border">
+                        <h4 className="font-semibold text-slate-900 mb-3">Complete Description:</h4>
+                        <div className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap max-h-48 overflow-y-auto">
+                          {aiResponse.comprehensive_listing?.description || 
+                           `Great ${aiResponse.item_analysis?.name || 'item'} in good condition!\n\n• Well-maintained from clean, smoke-free home\n• Ready for immediate pickup\n• Cash preferred\n• Serious inquiries only\n\nMoving sale - priced to sell quickly!`}
+                        </div>
+                      </div>
+
+                      {/* Copy Buttons */}
+                      <div className="space-y-3">
+                        {/* Quick Copy Buttons */}
+                        <div className="grid grid-cols-2 gap-3">
+                          <Button
+                            onClick={() => {
+                              const title = aiResponse.comprehensive_listing?.title || (aiResponse.item_analysis?.name + ' - Good Condition') || 'Professional Listing'
+                              navigator.clipboard.writeText(title)
+                              setCopiedPlatform('title')
+                              setTimeout(() => setCopiedPlatform(null), 1500)
+                            }}
+                            variant="outline"
+                            className="h-12"
+                          >
+                            {copiedPlatform === 'title' ? (
+                              <><Check className="w-4 h-4 mr-2 text-green-600" />Copied!</>
+                            ) : (
+                              <><Copy className="w-4 h-4 mr-2" />Copy Title</>
+                            )}
+                          </Button>
+                          
+                          <Button
+                            onClick={() => {
+                              const price = aiResponse.comprehensive_listing?.price || aiResponse.pricing_strategy?.market_price || '$75'
+                              navigator.clipboard.writeText(price)
+                              setCopiedPlatform('price')
+                              setTimeout(() => setCopiedPlatform(null), 1500)
+                            }}
+                            variant="outline"
+                            className="h-12"
+                          >
+                            {copiedPlatform === 'price' ? (
+                              <><Check className="w-4 h-4 mr-2 text-green-600" />Copied!</>
+                            ) : (
+                              <><Copy className="w-4 h-4 mr-2" />Copy Price</>
+                            )}
+                          </Button>
+                        </div>
+                        
+                        {/* Copy Description */}
+                        <Button
+                          onClick={() => {
+                            const description = aiResponse.comprehensive_listing?.description || 
+                             `Great ${aiResponse.item_analysis?.name || 'item'} in good condition!\n\n• Well-maintained from clean, smoke-free home\n• Ready for immediate pickup\n• Cash preferred\n• Serious inquiries only\n\nMoving sale - priced to sell quickly!`
+                            navigator.clipboard.writeText(description)
+                            setCopiedPlatform('description')
+                            setTimeout(() => setCopiedPlatform(null), 1500)
+                          }}
+                          variant="outline"
+                          className="w-full h-12"
+                        >
+                          {copiedPlatform === 'description' ? (
+                            <><Check className="w-4 h-4 mr-2 text-green-600" />Description Copied!</>
+                          ) : (
+                            <><Copy className="w-4 h-4 mr-2" />Copy Description</>
+                          )}
+                        </Button>
+                        
+                        {/* Copy Everything */}
+                        <Button
+                          onClick={() => {
+                            const title = aiResponse.comprehensive_listing?.title || (aiResponse.item_analysis?.name + ' - Good Condition') || 'Professional Listing'
+                            const price = aiResponse.comprehensive_listing?.price || aiResponse.pricing_strategy?.market_price || '$75'
+                            const description = aiResponse.comprehensive_listing?.description || 
+                             `Great ${aiResponse.item_analysis?.name || 'item'} in good condition!\n\n• Well-maintained from clean, smoke-free home\n• Ready for immediate pickup\n• Cash preferred\n• Serious inquiries only\n\nMoving sale - priced to sell quickly!`
+                            
+                            const fullListing = `TITLE: ${title}\n\nPRICE: ${price}\n\nDESCRIPTION:\n${description}`
+                            
+                            navigator.clipboard.writeText(fullListing)
+                            setCopiedPlatform('full')
+                            setTimeout(() => setCopiedPlatform(null), 2000)
+                          }}
+                          className="w-full bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white py-4 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 font-semibold text-lg"
+                        >
+                          {copiedPlatform === 'full' ? (
+                            <><Check className="w-5 h-5 mr-2" />Complete Listing Copied!</>
+                          ) : (
+                            <><Copy className="w-5 h-5 mr-2" />Copy Complete Listing</>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+
+                {/* Quick Instructions */}
+                <div className="text-center space-y-4">
+                  <div className="text-lg font-medium text-slate-900">
+                    📱 Ready to post? Use the buttons above to copy your listing!
+                  </div>
+                  <div className="text-sm text-slate-600 max-w-2xl mx-auto">
+                    <strong>Quick tip:</strong> Go to Facebook Marketplace, Craigslist, or OfferUp, 
+                    click "Create Listing", upload your photo, then paste our professional content. 
+                    Your listing will look amazing!
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex justify-center space-x-4">
+                  <Button
+                    onClick={() => {
+                      setCurrentStep("upload")
+                      setUploadedPhoto(null)
+                      setPhotoPreview("")
+                      setRecording(null)
+                      setDescription("")
+                      setAiResponse(null)
+                      setCopiedPlatform(null)
+                    }}
+                    variant="outline"
+                    className="border-slate-300 text-slate-700 px-6 py-3 font-medium"
+                  >
+                    📷 Try Another Item
+                  </Button>
+
+                  <Button 
+                    variant="outline" 
+                    className="border-slate-300 text-slate-700 bg-transparent px-6 py-3 font-medium"
+                  >
+                    <Share2 className="w-4 h-4 mr-2" />
+                    Share FlipEasy
+                  </Button>
+                </div>
+              </motion.div>
+            )}
             {/* Step 1: Photo Upload */}
             {currentStep === "upload" && (
               <motion.div
