@@ -137,6 +137,7 @@ export default function CreateListing() {
   const [isRecording, setIsRecording] = useState(false)
   const [recordingDuration, setRecordingDuration] = useState(0)
   const [description, setDescription] = useState("")
+  const [transcription, setTranscription] = useState("")
   const [activePlatform, setActivePlatform] = useState<"facebook" | "craigslist" | "offerup">("facebook")
   const [aiResponse, setAiResponse] = useState<AIResponse | null>(null)
   const [copiedPlatform, setCopiedPlatform] = useState<string | null>(null)
@@ -207,37 +208,62 @@ export default function CreateListing() {
 
   const startRecording = async () => {
     try {
+      console.log('Starting recording...')
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      console.log('Got media stream:', stream)
+      
       const mediaRecorder = new MediaRecorder(stream)
       mediaRecorderRef.current = mediaRecorder
       
       const audioChunks: BlobPart[] = []
       
       mediaRecorder.ondataavailable = (event) => {
-        audioChunks.push(event.data)
+        console.log('Audio data available:', event.data.size)
+        if (event.data.size > 0) {
+          audioChunks.push(event.data)
+        }
       }
       
-      mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunks, { type: 'audio/wav' })
-        setRecording(audioBlob)
+      mediaRecorder.onstop = async () => {
+        console.log('Recording stopped, audio chunks:', audioChunks.length)
+        if (audioChunks.length > 0) {
+          const audioBlob = new Blob(audioChunks, { type: 'audio/webm' })
+          console.log('Created audio blob:', audioBlob.size)
+          setRecording(audioBlob)
+          
+          // Convert speech to text
+          await convertSpeechToText(audioBlob)
+        }
         stream.getTracks().forEach(track => track.stop())
       }
       
-      mediaRecorder.start()
-      setIsRecording(true)
-      setRecordingDuration(0)
+      mediaRecorder.onstart = () => {
+        console.log('MediaRecorder started')
+        setIsRecording(true)
+        setRecordingDuration(0)
+        
+        recordingTimerRef.current = setInterval(() => {
+          setRecordingDuration(prev => prev + 1)
+        }, 1000)
+      }
       
-      recordingTimerRef.current = setInterval(() => {
-        setRecordingDuration(prev => prev + 1)
-      }, 1000)
+      mediaRecorder.onerror = (event) => {
+        console.error('MediaRecorder error:', event)
+      }
+      
+      console.log('Starting MediaRecorder...')
+      mediaRecorder.start(1000) // Record in 1-second chunks
       
     } catch (error) {
       console.error('Error starting recording:', error)
+      alert('Recording failed: ' + error.message)
     }
   }
 
   const stopRecording = () => {
+    console.log('Stopping recording...')
     if (mediaRecorderRef.current && isRecording) {
+      console.log('MediaRecorder state:', mediaRecorderRef.current.state)
       mediaRecorderRef.current.stop()
       setIsRecording(false)
       if (recordingTimerRef.current) {
@@ -296,6 +322,20 @@ export default function CreateListing() {
     const mins = Math.floor(seconds / 60)
     const secs = seconds % 60
     return `${mins}:${secs.toString().padStart(2, '0')}`
+  }
+
+  const convertSpeechToText = async (audioBlob: Blob) => {
+    try {
+      // Simple placeholder transcription for now
+      // You can replace this with actual speech-to-text API later
+      setTranscription("Your voice recording has been saved. You can add details in the text box below or re-record if needed.")
+      
+      // TODO: Implement actual speech-to-text conversion
+      // For now, we'll just show the recording was successful
+    } catch (error) {
+      console.error('Speech to text conversion failed:', error)
+      setTranscription("Recording saved successfully. Please add details in the text box below.")
+    }
   }
 
   return (
@@ -419,18 +459,41 @@ export default function CreateListing() {
                       )}
 
                       {recording && (
-                        <div className="text-center space-y-4">
-                          <div className="text-green-600 font-medium">✅ Recording saved ({formatRecordingTime(recordingDuration)})</div>
-                          <Button
-                            onClick={() => {
-                              setRecording(null)
-                              setRecordingDuration(0)
-                            }}
-                            variant="outline"
-                            size="sm"
-                          >
-                            Record Again
-                          </Button>
+                        <div className="space-y-4">
+                          <div className="text-center">
+                            <div className="text-green-600 font-medium mb-4">✅ Recording saved ({formatRecordingTime(recordingDuration)})</div>
+                            <Button
+                              onClick={() => {
+                                setRecording(null)
+                                setRecordingDuration(0)
+                                setTranscription("")
+                              }}
+                              variant="outline"
+                              size="sm"
+                            >
+                              Record Again
+                            </Button>
+                          </div>
+                          
+                          {/* Transcription Display */}
+                          {transcription && (
+                            <div className="mt-4 p-4 bg-slate-50 rounded-lg border">
+                              <h4 className="font-semibold text-slate-900 text-sm mb-2">What you said:</h4>
+                              <div className="text-sm text-slate-700 leading-relaxed">
+                                {transcription.split('.').filter(sentence => sentence.trim()).map((sentence, index) => (
+                                  <p key={index} className="mb-2">• {sentence.trim()}.</p>
+                                ))}
+                              </div>
+                              <Button
+                                onClick={() => setDescription(transcription)}
+                                size="sm"
+                                variant="outline"
+                                className="mt-2"
+                              >
+                                Copy to Text Box
+                              </Button>
+                            </div>
+                          )}
                         </div>
                       )}
                     </Card>
@@ -454,6 +517,14 @@ export default function CreateListing() {
                     >
                       Create My Listings ✨
                     </Button>
+                    
+                    {(recording || description.trim()) && (
+                      <div className="text-center text-sm text-slate-600">
+                        {recording && "Voice recording ready"}
+                        {recording && description.trim() && " + "}
+                        {description.trim() && "Text description added"}
+                      </div>
+                    )}
                   </div>
                 </div>
               </motion.div>
