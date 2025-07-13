@@ -182,26 +182,23 @@ export default function CreatePage() {
   // Photo upload handlers
   const handleFileSelect = useCallback(async (file: File) => {
     if (file && file.type.startsWith("image/")) {
-      try {
-        // Compress image for better upload performance
-        const compressedFile = await compressImage(file, 1024, 0.8);
-        setUploadedPhoto(compressedFile);
-        
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          setPhotoPreview(e.target?.result as string);
-        };
-        reader.readAsDataURL(compressedFile);
-      } catch (error) {
-        console.error('Error processing image:', error);
-        // Fallback to original file
-        setUploadedPhoto(file);
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          setPhotoPreview(e.target?.result as string);
-        };
-        reader.readAsDataURL(file);
-      }
+      console.log('File selected:', file.name, file.size);
+      
+      // Set the file immediately
+      setUploadedPhoto(file);
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        console.log('FileReader loaded successfully');
+        setPhotoPreview(e.target?.result as string);
+      };
+      reader.onerror = (e) => {
+        console.error('FileReader error:', e);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      console.error('Invalid file type:', file?.type);
     }
   }, [])
 
@@ -216,8 +213,12 @@ export default function CreatePage() {
     if (file) handleFileSelect(file)
   }
 
-  const handleCameraCapture = () => {
+  const handleCameraCapture = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
     if (fileInputRef.current) {
+      console.log('Camera capture clicked');
       // Set capture attribute for mobile camera access
       fileInputRef.current.setAttribute("capture", "environment");
       fileInputRef.current.setAttribute("accept", "image/*");
@@ -393,10 +394,9 @@ export default function CreatePage() {
 
               {!uploadedPhoto ? (
                 <Card
-                  className="p-12 border-2 border-dashed border-slate-300 hover:border-cyan-400 transition-colors cursor-pointer bg-gradient-to-br from-slate-50 to-white"
+                  className="p-12 border-2 border-dashed border-slate-300 hover:border-cyan-400 transition-colors bg-gradient-to-br from-slate-50 to-white"
                   onDrop={handleDrop}
                   onDragOver={(e) => e.preventDefault()}
-                  onClick={() => fileInputRef.current?.click()}
                 >
                   <div className="text-center space-y-6">
                     <motion.div
