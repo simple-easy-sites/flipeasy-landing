@@ -9,7 +9,11 @@ export const metadata: Metadata = {
   title: "FlipEasy - Turn Clutter Into Cash in 60 Seconds",
   description:
     "Take a photo, speak a description, get professional listings instantly. No stress, no guesswork, just results.",
-    generator: 'v0.dev'
+  generator: 'v0.dev',
+  icons: {
+    icon: '/favicon.svg',
+    apple: '/favicon.svg',
+  },
 }
 
 export default function RootLayout({
@@ -19,6 +23,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
+      <head>
+        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+        <link rel="shortcut icon" href="/favicon.ico" />
+      </head>
       <body className={inter.className}>{children}</body>
     </html>
   )
