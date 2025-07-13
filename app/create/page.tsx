@@ -70,6 +70,35 @@ const CopyButton = ({ text, label, size = "default" }: { text: string; label: st
   )
 }
 
+// Pricing Insights Component
+const PricingInsights = ({ pricingData }: { pricingData: any }) => (
+  <Card className="p-6 bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200/50">
+    <div className="flex items-center space-x-2 mb-4">
+      <DollarSign className="w-5 h-5 text-green-600" />
+      <h3 className="text-lg font-semibold text-slate-900">Smart Pricing Strategy</h3>
+    </div>
+    <div className="grid grid-cols-3 gap-4 mb-4">
+      <div className="text-center p-3 bg-white/60 rounded-lg">
+        <div className="text-lg font-bold text-green-600">{pricingData.quick_sale_price}</div>
+        <div className="text-xs text-slate-600">Quick Sale</div>
+      </div>
+      <div className="text-center p-3 bg-green-100/60 rounded-lg border-2 border-green-300">
+        <div className="text-lg font-bold text-green-700">{pricingData.market_price}</div>
+        <div className="text-xs text-green-700 font-medium">Recommended</div>
+      </div>
+      <div className="text-center p-3 bg-white/60 rounded-lg">
+        <div className="text-lg font-bold text-green-600">{pricingData.best_value_price}</div>
+        <div className="text-xs text-slate-600">Best Value</div>
+      </div>
+    </div>
+    {pricingData.rationale && (
+      <div className="text-sm text-slate-700 bg-white/40 p-3 rounded-lg">
+        <strong>Why this price?</strong> {pricingData.rationale}
+      </div>
+    )}
+  </Card>
+)
+
 // Listing Section Component
 const ListingSection = ({ 
   title, 
@@ -439,6 +468,7 @@ export default function CreateListing() {
       const formData = new FormData()
       formData.append('image', uploadedPhoto)
       formData.append('description', description)
+      formData.append('transcription', transcription) // Add live transcription
 
       const response = await fetch('/api/analyze', {
         method: 'POST',
@@ -585,6 +615,39 @@ export default function CreateListing() {
 
                   {/* Voice/Text Input */}
                   <div className="space-y-6">
+                    {/* Guided Questions Panel */}
+                    <Card className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200/50">
+                      <h3 className="text-lg font-semibold text-blue-900 mb-4">💡 Helpful Questions to Answer While Recording</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                        <div className="space-y-2">
+                          <div className="font-medium text-blue-800">About the Item:</div>
+                          <ul className="space-y-1 text-blue-700">
+                            <li>• What is it exactly? (brand, model, type)</li>
+                            <li>• What condition is it in?</li>
+                            <li>• What are the dimensions/size?</li>
+                            <li>• What material is it made of?</li>
+                            <li>• What color is it?</li>
+                          </ul>
+                        </div>
+                        <div className="space-y-2">
+                          <div className="font-medium text-blue-800">Your Story:</div>
+                          <ul className="space-y-1 text-blue-700">
+                            <li>• Where did you buy it from?</li>
+                            <li>• How much did you originally pay?</li>
+                            <li>• How long have you owned it?</li>
+                            <li>• Why are you selling it?</li>
+                            <li>• Any flaws or wear to mention?</li>
+                          </ul>
+                        </div>
+                      </div>
+                      <div className="mt-4 p-3 bg-blue-100/50 rounded-lg">
+                        <div className="text-xs text-blue-800">
+                          <strong>💡 Tip:</strong> The more details you provide, the better your listing will be! 
+                          Don't worry if you don't know everything - just share what you can.
+                        </div>
+                      </div>
+                    </Card>
+
                     {/* Voice Recording */}
                     <Card className="p-6 bg-white/80 backdrop-blur-xl">
                       <h3 className="text-lg font-semibold mb-4">🎤 Voice Description (Recommended)</h3>
@@ -805,95 +868,152 @@ export default function CreateListing() {
                   )}
                 </Card>
 
-                {/* Platform Tabs */}
-                <div className="flex justify-center space-x-4">
-                  <PlatformTab
-                    platform="facebook"
-                    isActive={activePlatform === "facebook"}
-                    onClick={() => setActivePlatform("facebook")}
-                  />
-                  <PlatformTab
-                    platform="craigslist"
-                    isActive={activePlatform === "craigslist"}
-                    onClick={() => setActivePlatform("craigslist")}
-                  />
-                  <PlatformTab
-                    platform="offerup"
-                    isActive={activePlatform === "offerup"}
-                    onClick={() => setActivePlatform("offerup")}
-                  />
+                {/* Pricing Strategy */}
+                {aiResponse.pricing_strategy && (
+                  <PricingInsights pricingData={aiResponse.pricing_strategy} />
+                )}
+
+                {/* Comprehensive Listing Display */}
+                <div className="text-center mb-6">
+                  <h3 className="text-xl font-semibold text-slate-900 mb-2">📝 Your Professional Marketplace Listing</h3>
+                  <p className="text-slate-600">Ready to copy and paste into any marketplace</p>
                 </div>
 
                 {/* Listing Preview */}
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={activePlatform}
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -20 }}
-                  >
-                    <Card className="p-6 bg-white/90 backdrop-blur-xl border border-white/40 shadow-xl">
-                      <div className="grid lg:grid-cols-2 gap-8">
-                        {/* Photo */}
-                        <div>
-                          <img
-                            src={photoPreview || "/placeholder.svg"}
-                            alt="Item"
-                            className="w-full rounded-lg shadow-lg"
-                          />
-                        </div>
+                <Card className="p-6 bg-white/90 backdrop-blur-xl border border-white/40 shadow-xl">
+                  <div className="grid lg:grid-cols-2 gap-8">
+                    {/* Photo */}
+                    <div>
+                      <img
+                        src={photoPreview || "/placeholder.svg"}
+                        alt="Item"
+                        className="w-full rounded-lg shadow-lg"
+                      />
+                    </div>
 
-                        {/* Listing Content */}
-                        <div className="space-y-4">
-                          <ListingSection
-                            title="Title"
-                            content={aiResponse.listings?.[activePlatform]?.title || 'Professional listing title'}
-                            copyLabel="Title"
-                            icon={<Copy className="w-4 h-4" />}
-                            className="border-blue-200 bg-blue-50/50"
-                          />
+                        {/* Comprehensive Listing Content */}
+                        <div className="space-y-6">
+                          {/* Main Listing Information */}
+                          <div className="grid grid-cols-2 gap-4">
+                            <ListingSection
+                              title="Title"
+                              content={aiResponse.comprehensive_listing?.title || 'Professional listing title'}
+                              copyLabel="Title"
+                              icon={<Copy className="w-4 h-4" />}
+                              className="border-blue-200 bg-blue-50/50"
+                            />
+                            <ListingSection
+                              title="Price"
+                              content={aiResponse.comprehensive_listing?.price || '$0'}
+                              copyLabel="Price"
+                              icon={<DollarSign className="w-4 h-4" />}
+                              className="border-green-200 bg-green-50/50"
+                            />
+                          </div>
 
-                          <ListingSection
-                            title="Price"
-                            content={aiResponse.listings?.[activePlatform]?.price || '$0'}
-                            copyLabel="Price"
-                            icon={<DollarSign className="w-4 h-4" />}
-                            className="border-green-200 bg-green-50/50"
-                          />
+                          {/* Category and Condition */}
+                          <div className="grid grid-cols-2 gap-4">
+                            <ListingSection
+                              title="Category"
+                              content={`${aiResponse.comprehensive_listing?.category || 'General'} > ${aiResponse.comprehensive_listing?.subcategory || 'Other'}`}
+                              copyLabel="Category"
+                              className="border-purple-200 bg-purple-50/50"
+                            />
+                            <ListingSection
+                              title="Condition"
+                              content={aiResponse.comprehensive_listing?.condition || 'Good'}
+                              copyLabel="Condition"
+                              className="border-yellow-200 bg-yellow-50/50"
+                            />
+                          </div>
 
+                          {/* Specifications */}
+                          {aiResponse.comprehensive_listing?.specifications && (
+                            <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/50">
+                              <div className="flex items-center justify-between mb-3">
+                                <h4 className="font-semibold text-slate-900 text-sm">Specifications</h4>
+                                <CopyButton 
+                                  text={Object.entries(aiResponse.comprehensive_listing.specifications)
+                                    .map(([key, value]) => `${key}: ${value}`)
+                                    .join('\n')}
+                                  label="Specs" 
+                                  size="sm" 
+                                />
+                              </div>
+                              <div className="grid grid-cols-2 gap-2 text-sm text-slate-700">
+                                {Object.entries(aiResponse.comprehensive_listing.specifications).map(([key, value]) => (
+                                  <div key={key} className="flex justify-between">
+                                    <span className="font-medium capitalize">{key}:</span>
+                                    <span>{value as string}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Main Description */}
                           <ListingSection
-                            title="Description"
-                            content={typeof aiResponse.listings?.[activePlatform]?.description === 'string' 
-                              ? aiResponse.listings[activePlatform].description 
-                              : 'Professional description for your item'}
+                            title="Complete Description"
+                            content={aiResponse.comprehensive_listing?.description || 'Professional description for your item'}
                             copyLabel="Description"
                             className="border-slate-200 bg-slate-50/50"
                           />
 
-                          {/* Complete Listing Copy */}
+                          {/* Tags */}
+                          {aiResponse.comprehensive_listing?.tags && (
+                            <div className="border border-slate-200 rounded-xl p-4 bg-white/50 backdrop-blur-sm">
+                              <div className="flex items-center justify-between mb-3">
+                                <h4 className="font-semibold text-slate-900 text-sm">Search Tags</h4>
+                                <CopyButton 
+                                  text={aiResponse.comprehensive_listing.tags.join(', ')} 
+                                  label="Tags" 
+                                  size="sm" 
+                                />
+                              </div>
+                              <div className="flex flex-wrap gap-2">
+                                {aiResponse.comprehensive_listing.tags.map((tag: string, index: number) => (
+                                  <Badge key={index} variant="secondary" className="bg-slate-100 text-slate-700">
+                                    {tag}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* All-in-One Copy Button */}
                           <div className="pt-4">
                             <Button
                               onClick={() => {
-                                const listing = aiResponse.listings?.[activePlatform]
+                                const listing = aiResponse.comprehensive_listing
                                 if (listing) {
-                                  let fullText = `${listing.title || 'Item for Sale'}\n\nPrice: ${listing.price || '$0'}\n\n`;
+                                  let fullText = `TITLE: ${listing.title}\n\n`
+                                  fullText += `PRICE: ${listing.price}\n\n`
+                                  fullText += `CATEGORY: ${listing.category}\n`
+                                  fullText += `CONDITION: ${listing.condition}\n\n`
+                                  fullText += `DESCRIPTION:\n${listing.description}\n\n`
                                   
-                                  if (typeof listing.description === 'object') {
-                                    fullText += Object.values(listing.description).join('\n\n');
-                                  } else {
-                                    fullText += listing.description || 'Great item for sale!';
+                                  if (listing.specifications) {
+                                    fullText += `SPECIFICATIONS:\n`
+                                    Object.entries(listing.specifications).forEach(([key, value]) => {
+                                      fullText += `${key}: ${value}\n`
+                                    })
+                                    fullText += `\n`
+                                  }
+                                  
+                                  if (listing.tags) {
+                                    fullText += `TAGS: ${listing.tags.join(', ')}`
                                   }
                                   
                                   navigator.clipboard.writeText(fullText);
-                                  setCopiedPlatform(activePlatform);
+                                  setCopiedPlatform('comprehensive');
                                   setTimeout(() => setCopiedPlatform(null), 2000);
                                 } else {
                                   alert('No listing data available to copy');
                                 }
                               }}
-                              className="w-full bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 text-white py-4 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 font-semibold text-lg"
+                              className="w-full bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white py-4 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 font-semibold text-lg"
                             >
-                              {copiedPlatform === activePlatform ? (
+                              {copiedPlatform === 'comprehensive' ? (
                                 <>
                                   <Check className="w-5 h-5 mr-2" />
                                   Complete Listing Copied!
@@ -901,7 +1021,7 @@ export default function CreateListing() {
                               ) : (
                                 <>
                                   <Copy className="w-5 h-5 mr-2" />
-                                  Copy Complete Listing
+                                  Copy Complete Professional Listing
                                 </>
                               )}
                             </Button>
@@ -909,8 +1029,6 @@ export default function CreateListing() {
                         </div>
                       </div>
                     </Card>
-                  </motion.div>
-                </AnimatePresence>
 
                 {/* Next Steps */}
                 <div className="text-center space-y-6">
