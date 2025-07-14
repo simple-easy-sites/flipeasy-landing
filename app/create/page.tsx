@@ -7,10 +7,12 @@ import { Card } from "@/components/ui/card"
 import { ArrowLeft, Upload, Mic, MicOff, Camera, Copy, Check, Share2 } from "lucide-react"
 import Link from "next/link"
 
-interface Listing {
+interface ListingOption {
+  persona: string;
   title: string;
   description: string;
   price: string;
+  reasoning: string;
 }
 
 interface AIResponse {
@@ -18,7 +20,7 @@ interface AIResponse {
   web_search_used?: boolean
   fallback_mode?: boolean
   search_queries?: string[]
-  listing: Listing;
+  listings: ListingOption[];
 }
 
 export default function CreateListing() {
@@ -30,6 +32,7 @@ export default function CreateListing() {
   const [recordingDuration, setRecordingDuration] = useState(0)
   const [description, setDescription] = useState("")
   const [aiResponse, setAiResponse] = useState<AIResponse | null>(null)
+  const [selectedListing, setSelectedListing] = useState<ListingOption | null>(null)
   const [copied, setCopied] = useState(false)
   const [processingStatus, setProcessingStatus] = useState("Creating your listing...")
 
@@ -121,6 +124,9 @@ export default function CreateListing() {
       }
       const result = await response.json()
       setAiResponse(result)
+      if (result.listings && result.listings.length > 0) {
+        setSelectedListing(result.listings[0])
+      }
       setCurrentStep("results")
     } catch (error) {
       console.error("Error processing with AI:", error)
@@ -137,8 +143,8 @@ export default function CreateListing() {
   }
 
   const handleCopy = () => {
-    if (!aiResponse?.listing) return
-    const { title, price, description } = aiResponse.listing
+    if (!selectedListing) return
+    const { title, price, description } = selectedListing
     const fullListing = `Title: ${title}\n\nPrice: ${price}\n\nDescription:\n${description.replace(/\\n\\n/g, '\n\n').replace(/\\n/g, '\n')}`
     navigator.clipboard.writeText(fullListing).then(() => {
       setCopied(true)
@@ -263,29 +269,53 @@ export default function CreateListing() {
               <motion.div key="results" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-8">
                 <div className="text-center">
                   <h1 className="text-3xl lg:text-4xl font-light text-slate-900 mb-4">🎉 Your listing is ready!</h1>
-                  <p className="text-lg text-slate-600">Copy the listing below and paste it into any marketplace.</p>
+                  <p className="text-lg text-slate-600">Choose an option below, or mix and match to create the perfect listing.</p>
                 </div>
 
                 <Card className="p-8 bg-white shadow-xl max-w-4xl mx-auto">
-                  <div className="space-y-4">
-                    {aiResponse?.listing ? (
-                      <>
-                        <h2 className="text-2xl font-bold text-slate-900">{aiResponse.listing.title}</h2>
-                        <p className="text-3xl font-bold text-green-600">{aiResponse.listing.price}</p>
-                        <div className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
-                          {aiResponse.listing.description.replace(/\\n\\n/g, '\n\n').replace(/\\n/g, '\n')}
+                  <div className="grid lg:grid-cols-2 gap-8">
+                    <div>
+                      <img src={photoPreview || "/placeholder.svg"} alt="Item" className="w-full rounded-lg shadow-lg" />
+                    </div>
+                    <div className="space-y-4">
+                      {aiResponse?.listings && aiResponse.listings.length > 0 ? (
+                        <>
+                          <div className="flex space-x-2">
+                            {aiResponse.listings.map((listing, index) => (
+                              <Button
+                                key={index}
+                                variant={selectedListing?.persona === listing.persona ? "default" : "outline"}
+                                onClick={() => setSelectedListing(listing)}
+                              >
+                                {listing.persona}
+                              </Button>
+                            ))}
+                          </div>
+                          {selectedListing && (
+                            <div className="space-y-4">
+                              <h2 className="text-2xl font-bold text-slate-900">{selectedListing.title}</h2>
+                              <p className="text-3xl font-bold text-green-600">{selectedListing.price}</p>
+                              <div className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
+                                {selectedListing.description.replace(/\\n\\n/g, '\n\n').replace(/\\n/g, '\n')}
+                              </div>
+                              <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                                <h4 className="font-semibold text-blue-900 text-sm mb-2">Expert's Reasoning</h4>
+                                <p className="text-sm text-blue-800 whitespace-pre-wrap">{selectedListing.reasoning}</p>
+                              </div>
+                              <Button onClick={handleCopy} className="w-full bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 text-white py-4 font-semibold text-lg">
+                                {copied ? <Check className="w-5 h-5 mr-2" /> : <Copy className="w-5 h-5 mr-2" />}
+                                {copied ? "Copied!" : "Copy Listing"}
+                              </Button>
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <div className="text-center text-red-600">
+                          <p>Sorry, we couldn't generate a listing at this time.</p>
+                          <p>Please try again or write a more detailed description.</p>
                         </div>
-                        <Button onClick={handleCopy} className="w-full bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 text-white py-4 font-semibold text-lg">
-                          {copied ? <Check className="w-5 h-5 mr-2" /> : <Copy className="w-5 h-5 mr-2" />}
-                          {copied ? "Copied!" : "Copy Listing"}
-                        </Button>
-                      </>
-                    ) : (
-                      <div className="text-center text-red-600">
-                        <p>Sorry, we couldn't generate a listing at this time.</p>
-                        <p>Please try again or write a more detailed description.</p>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
                 </Card>
 

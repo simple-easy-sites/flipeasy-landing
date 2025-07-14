@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
     }
     
     // ENHANCED PROMPT FOR WEB SEARCH + IMAGE ANALYSIS
-    const prompt = `You are a master storyteller and a smart pricing engine. Your goal is to generate a perfect, ready-to-use JSON object with a title, description, and price for a marketplace listing.
+    const prompt = `You are a "listing options" generator. Your goal is to generate a JSON object containing an array of three distinct listing options for a marketplace.
 
 **User's Description:** "${userDescription}"
 
@@ -70,19 +70,40 @@ export async function POST(request: NextRequest) {
 1.  **Analyze and Research:**
     *   Thoroughly analyze the user's image and description.
     *   Use Google Search to find the price of similar new and used items.
-    *   Synthesize all information to create a complete and accurate listing.
+    *   Synthesize all information to create three distinct, high-quality listing options.
 
 2.  **Generate JSON Output:**
     *   You MUST respond with only a valid JSON object.
-    *   Use the following structure and fill every field with accurate and well-written content.
+    *   The root of the object should be a "listings" array.
+    *   Each object in the "listings" array should have a unique persona: "The Professional," "The Storyteller," and "The Marketer."
 
 **JSON Structure:**
 
 \`\`\`json
 {
-  "title": "An enticing, descriptive title for the listing.",
-  "description": "A compelling, narrative description. Start with a one-sentence hook. Follow with a paragraph that details the item's features and benefits. End with a sentence about the ideal use case. Use \\n\\n for paragraph breaks.",
-  "price": "A specific, market-researched price for the used item (e.g., '$125')."
+  "listings": [
+    {
+      "persona": "The Professional",
+      "title": "A clean, straightforward title.",
+      "description": "A fact-based description focusing on features and specs. Use \\n\\n for paragraph breaks.",
+      "price": "A fair market price based on research.",
+      "reasoning": "Explain why this price and description are effective for a professional listing."
+    },
+    {
+      "persona": "The Storyteller",
+      "title": "A more creative, narrative-driven title.",
+      "description": "A description that tells a story about the item, using details from the user's input. Use \\n\\n for paragraph breaks.",
+      "price": "A price that reflects the item's story and unique value.",
+      "reasoning": "Explain why this price and description will appeal to buyers looking for an item with character."
+    },
+    {
+      "persona": "The Marketer",
+      "title": "A sales-focused title that creates urgency.",
+      "description": "A persuasive description that uses marketing language to highlight benefits and create a sense of urgency. Use \\n\\n for paragraph breaks.",
+      "price": "A competitive price designed to sell quickly.",
+      "reasoning": "Explain why this price and description will attract a lot of buyers and lead to a fast sale."
+    }
+  ]
 }
 \`\`\`
 `;
