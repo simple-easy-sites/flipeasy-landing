@@ -305,7 +305,7 @@ export default function CreateListing() {
                   <div className="grid lg:grid-cols-2 gap-8">
                     <div>
                       <img src={photoPreview || "/placeholder.svg"} alt="Item" className="w-full rounded-lg shadow-lg" />
-                      {aiResponse?.listing.price_analysis.reasoning && (
+                      {aiResponse?.listing?.price_analysis?.reasoning && (
                         <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                           <h4 className="font-semibold text-blue-900 text-sm mb-2">The FlipEasy Expert's Analysis</h4>
                           <p className="text-sm text-blue-800 whitespace-pre-wrap">{aiResponse.listing.price_analysis.reasoning}</p>
@@ -317,7 +317,7 @@ export default function CreateListing() {
                       {aiResponse?.listing ? (
                         <>
                           {renderListingField("Title", aiResponse.listing.title)}
-                          {aiResponse.listing.price_analysis.suggested_price && renderListingField("Price", aiResponse.listing.price_analysis.suggested_price)}
+                          {aiResponse.listing.price_analysis?.suggested_price && renderListingField("Price", aiResponse.listing.price_analysis.suggested_price)}
                           {renderListingField("Category", aiResponse.listing.category)}
                           {renderListingField("Confidence", aiResponse.listing.confidence)}
                           {renderListingField("Condition", aiResponse.listing.condition)}
