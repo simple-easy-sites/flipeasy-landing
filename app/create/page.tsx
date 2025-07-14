@@ -302,7 +302,7 @@ export default function CreateListing() {
                       <img src={photoPreview || "/placeholder.svg"} alt="Item" className="w-full rounded-lg shadow-lg" />
                       {aiResponse?.listing.ai_reasoning && (
                         <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                          <h4 className="font-semibold text-blue-900 text-sm mb-2">AI Reasoning</h4>
+                          <h4 className="font-semibold text-blue-900 text-sm mb-2">The FlipEasy Expert's Analysis</h4>
                           <p className="text-sm text-blue-800 whitespace-pre-wrap">{aiResponse.listing.ai_reasoning}</p>
                         </div>
                       )}
@@ -320,21 +320,36 @@ export default function CreateListing() {
                           {renderListingField("Dimensions (in)", aiResponse.listing.dimensions.inches)}
                           {renderListingField("Dimensions (cm)", aiResponse.listing.dimensions.cm)}
                           {renderListingField("Usage", aiResponse.listing.usage)}
-                          {renderListingField("Features", aiResponse.listing.features)}
                           
                           <div>
                             <span className="text-sm font-semibold text-slate-600">Description</span>
                             <div className="mt-1 bg-slate-50 border border-slate-200 rounded-md px-3 py-2 text-sm text-slate-800 whitespace-pre-wrap">
-                              {aiResponse.listing.description.replace(/\\n/g, '\n')}
+                              {aiResponse.listing.description.replace(/\\n\\n/g, '\n\n').replace(/\\n/g, '\n')}
                             </div>
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => handleCopy(aiResponse.listing.description.replace(/\\n/g, '\n'), "Description")}
+                              onClick={() => handleCopy(aiResponse.listing.description.replace(/\\n\\n/g, '\n\n').replace(/\\n/g, '\n'), "Description")}
                               className="mt-2"
                             >
                               {copiedField === "Description" ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
                               <span className="ml-2">Copy Description</span>
+                            </Button>
+                          </div>
+                          
+                          <div>
+                            <span className="text-sm font-semibold text-slate-600">Features</span>
+                            <div className="mt-1 bg-slate-50 border border-slate-200 rounded-md px-3 py-2 text-sm text-slate-800 whitespace-pre-wrap">
+                              {aiResponse.listing.features.map(feature => `• ${feature}`).join('\n')}
+                            </div>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleCopy(aiResponse.listing.features.map(feature => `• ${feature}`).join('\n'), "Features")}
+                              className="mt-2"
+                            >
+                              {copiedField === "Features" ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
+                              <span className="ml-2">Copy Features</span>
                             </Button>
                           </div>
                         </>

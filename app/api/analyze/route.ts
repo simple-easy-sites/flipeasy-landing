@@ -76,18 +76,18 @@ Based on the user's image and description, create a complete and accurate market
 
 2.  **Generate JSON Output:**
     *   You MUST respond with only a valid JSON object.
-    *   Use the following structure and fill every field with accurate and well-written content.
+    *   Use the following structure and fill every field with accurate and well-written content. If you cannot determine a value with high confidence, leave the field blank.
 
 **JSON Structure:**
 
 \`\`\`json
 {
-  "product_type": "Choose the most specific category: Antiques & Collectibles, Arts & Crafts, Auto Parts & Accessories, Baby Products, Books/Movies/Music, Cell Phones & Accessories, Clothing/Shoes/Accessories, Electronics, Furniture, Health & Beauty, Home & Kitchen, Jewelry & Watches, Miscellaneous, Musical Instruments, Office Supplies, Patio & Garden, Pets/Pet Supplies, Sporting Goods, Tools & Home Improvement, Toys & Games, Travel/Luggage, Video Games & Consoles, Vehicles, Real Estate.",
+  "product_type": "Choose the most specific category: Antiques & Collectibles, Arts & Crafts, Auto Parts & Accessories, Baby & Kids > Clothing, Baby & Kids > Toys, Baby & Kids > Other, Books/Movies/Music, Cell Phones & Accessories, Clothing/Shoes/Accessories, Electronics, Furniture > Chairs > Dining Chairs, Furniture > Chairs > Office Chairs, Furniture > Other, Health & Beauty, Home & Kitchen, Jewelry & Watches, Miscellaneous, Musical Instruments, Office Supplies, Patio & Garden, Pets/Pet Supplies, Sporting Goods, Tools & Home Improvement, Toys & Games, Travel/Luggage, Video Games & Consoles, Vehicles, Real Estate.",
   "brand": "The brand name (e.g., 'IKEA', 'Dyson').",
   "model": "The model name or number (e.g., 'Hovet', 'V11').",
   "title": "An enticing, descriptive title for the listing (e.g., 'Stylish Red IKEA Tobias Acrylic Chair - Perfect Condition!').",
   "condition": "Choose one based on the user's input and image: 'New', 'Used - Like New', 'Used - Good', 'Used - Fair'.",
-  "description": "A compelling, narrative description. Start with a one-sentence hook. Follow with a paragraph that details the item's features and benefits. End with a sentence about the ideal use case. Use \\n for newlines.",
+  "description": "A compelling, narrative description. Start with a one-sentence hook. Follow with a paragraph that details the item's features and benefits. End with a sentence about the ideal use case. Use \\n\\n for paragraph breaks.",
   "features": [
     "A key feature or benefit.",
     "Another key feature.",
