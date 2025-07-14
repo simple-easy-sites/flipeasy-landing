@@ -7,26 +7,10 @@ import { Card } from "@/components/ui/card"
 import { ArrowLeft, Upload, Mic, MicOff, Camera, Copy, Check, Share2 } from "lucide-react"
 import Link from "next/link"
 
-interface PriceAnalysis {
-  suggested_price: string;
-  reasoning: string;
-}
-
 interface Listing {
-  category: string;
-  confidence: string;
-  brand: string;
-  model: string;
   title: string;
-  condition: string;
   description: string;
-  features: string[];
-  dimensions: {
-    inches: string;
-    cm: string;
-  };
-  usage: string;
-  price_analysis: PriceAnalysis;
+  price: string;
 }
 
 interface AIResponse {
@@ -46,7 +30,7 @@ export default function CreateListing() {
   const [recordingDuration, setRecordingDuration] = useState(0)
   const [description, setDescription] = useState("")
   const [aiResponse, setAiResponse] = useState<AIResponse | null>(null)
-  const [copiedField, setCopiedField] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
   const [processingStatus, setProcessingStatus] = useState("Creating your listing...")
 
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -152,33 +136,14 @@ export default function CreateListing() {
     return `${mins}:${secs.toString().padStart(2, "0")}`
   }
 
-  const handleCopy = (text: string, field: string) => {
-    navigator.clipboard.writeText(text).then(() => {
-      setCopiedField(field)
-      setTimeout(() => setCopiedField(null), 2000)
+  const handleCopy = () => {
+    if (!aiResponse?.listing) return
+    const { title, price, description } = aiResponse.listing
+    const fullListing = `Title: ${title}\n\nPrice: ${price}\n\nDescription:\n${description.replace(/\\n\\n/g, '\n\n').replace(/\\n/g, '\n')}`
+    navigator.clipboard.writeText(fullListing).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
     })
-  }
-
-  const renderListingField = (label: string, value: string | string[]) => {
-    if (!value || (Array.isArray(value) && value.length === 0)) return null
-    const displayValue = Array.isArray(value) ? value.join("\n") : value
-
-    return (
-      <div className="grid grid-cols-3 gap-4 items-start">
-        <span className="text-sm font-semibold text-slate-600 pt-2">{label}</span>
-        <div className="col-span-2 bg-slate-50 border border-slate-200 rounded-md px-3 py-2 text-sm text-slate-800 whitespace-pre-wrap">
-          {displayValue}
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => handleCopy(displayValue, label)}
-          className="col-start-3 justify-self-end"
-        >
-          {copiedField === label ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
-        </Button>
-      </div>
-    )
   }
 
   return (
@@ -298,74 +263,29 @@ export default function CreateListing() {
               <motion.div key="results" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-8">
                 <div className="text-center">
                   <h1 className="text-3xl lg:text-4xl font-light text-slate-900 mb-4">🎉 Your listing is ready!</h1>
-                  <p className="text-lg text-slate-600">Copy the fields below and paste them into any marketplace.</p>
+                  <p className="text-lg text-slate-600">Copy the listing below and paste it into any marketplace.</p>
                 </div>
 
                 <Card className="p-8 bg-white shadow-xl max-w-4xl mx-auto">
-                  <div className="grid lg:grid-cols-2 gap-8">
-                    <div>
-                      <img src={photoPreview || "/placeholder.svg"} alt="Item" className="w-full rounded-lg shadow-lg" />
-                      {aiResponse?.listing?.price_analysis?.reasoning && (
-                        <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                          <h4 className="font-semibold text-blue-900 text-sm mb-2">The FlipEasy Expert's Analysis</h4>
-                          <p className="text-sm text-blue-800 whitespace-pre-wrap">{aiResponse.listing.price_analysis.reasoning}</p>
+                  <div className="space-y-4">
+                    {aiResponse?.listing ? (
+                      <>
+                        <h2 className="text-2xl font-bold text-slate-900">{aiResponse.listing.title}</h2>
+                        <p className="text-3xl font-bold text-green-600">{aiResponse.listing.price}</p>
+                        <div className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
+                          {aiResponse.listing.description.replace(/\\n\\n/g, '\n\n').replace(/\\n/g, '\n')}
                         </div>
-                      )}
-                    </div>
-
-                    <div className="space-y-4">
-                      {aiResponse?.listing ? (
-                        <>
-                          {renderListingField("Title", aiResponse.listing.title)}
-                          {aiResponse.listing.price_analysis?.suggested_price && renderListingField("Price", aiResponse.listing.price_analysis.suggested_price)}
-                          {renderListingField("Category", aiResponse.listing.category)}
-                          {renderListingField("Confidence", aiResponse.listing.confidence)}
-                          {renderListingField("Condition", aiResponse.listing.condition)}
-                          {renderListingField("Brand", aiResponse.listing.brand)}
-                          {renderListingField("Model", aiResponse.listing.model)}
-                          {renderListingField("Dimensions (in)", aiResponse.listing.dimensions.inches)}
-                          {renderListingField("Dimensions (cm)", aiResponse.listing.dimensions.cm)}
-                          {renderListingField("Usage", aiResponse.listing.usage)}
-                          
-                          <div>
-                            <span className="text-sm font-semibold text-slate-600">Description</span>
-                            <div className="mt-1 bg-slate-50 border border-slate-200 rounded-md px-3 py-2 text-sm text-slate-800 whitespace-pre-wrap">
-                              {aiResponse.listing.description.replace(/\\n\\n/g, '\n\n').replace(/\\n/g, '\n')}
-                            </div>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleCopy(aiResponse.listing.description.replace(/\\n\\n/g, '\n\n').replace(/\\n/g, '\n'), "Description")}
-                              className="mt-2"
-                            >
-                              {copiedField === "Description" ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
-                              <span className="ml-2">Copy Description</span>
-                            </Button>
-                          </div>
-                          
-                          <div>
-                            <span className="text-sm font-semibold text-slate-600">Features</span>
-                            <div className="mt-1 bg-slate-50 border border-slate-200 rounded-md px-3 py-2 text-sm text-slate-800 whitespace-pre-wrap">
-                              {aiResponse.listing.features.map(feature => `• ${feature}`).join('\n')}
-                            </div>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleCopy(aiResponse.listing.features.map(feature => `• ${feature}`).join('\n'), "Features")}
-                              className="mt-2"
-                            >
-                              {copiedField === "Features" ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
-                              <span className="ml-2">Copy Features</span>
-                            </Button>
-                          </div>
-                        </>
-                      ) : (
-                        <div className="text-center text-red-600">
-                          <p>Sorry, we couldn't generate a listing at this time.</p>
-                          <p>Please try again or write a more detailed description.</p>
-                        </div>
-                      )}
-                    </div>
+                        <Button onClick={handleCopy} className="w-full bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 text-white py-4 font-semibold text-lg">
+                          {copied ? <Check className="w-5 h-5 mr-2" /> : <Copy className="w-5 h-5 mr-2" />}
+                          {copied ? "Copied!" : "Copy Listing"}
+                        </Button>
+                      </>
+                    ) : (
+                      <div className="text-center text-red-600">
+                        <p>Sorry, we couldn't generate a listing at this time.</p>
+                        <p>Please try again or write a more detailed description.</p>
+                      </div>
+                    )}
                   </div>
                 </Card>
 

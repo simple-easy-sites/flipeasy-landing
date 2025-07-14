@@ -61,9 +61,7 @@ export async function POST(request: NextRequest) {
     }
     
     // ENHANCED PROMPT FOR WEB SEARCH + IMAGE ANALYSIS
-    const prompt = `You are a JSON-only AI. Your only output will be a single, valid JSON object. Any other output is a failure.
-
-Based on the user's image and description, create a complete and accurate marketplace listing.
+    const prompt = `You are a master storyteller and a smart pricing engine. Your goal is to generate a perfect, ready-to-use JSON object with a title, description, and price for a marketplace listing.
 
 **User's Description:** "${userDescription}"
 
@@ -71,51 +69,20 @@ Based on the user's image and description, create a complete and accurate market
 
 1.  **Analyze and Research:**
     *   Thoroughly analyze the user's image and description.
-    *   Use Google Search to find the exact product name, brand, model, dimensions, materials, and current resale value.
+    *   Use Google Search to find the price of similar new and used items.
     *   Synthesize all information to create a complete and accurate listing.
 
-2.  **Categorize the Item:**
-    *   You MUST choose a category from the following list. You must choose the most specific sub-category possible.
-    *   **Category Hierarchy:**
-        *   **Furniture**: Living Room, Bedroom, Dining Room, Office, Outdoor
-        *   **Electronics**: Computing, Mobile, Entertainment, Cameras, Home Tech
-        *   **Clothing & Accessories**: Women's, Men's, Children's, Accessories
-        *   **Baby & Kids**: Furniture, Gear, Toys, Clothing
-        *   **Home & Garden**: Kitchen, Bathroom, Decor, Garden, Storage
-        *   **Vehicles & Parts**: Vehicles, Parts, Maintenance
-        *   **Hobbies & Collectibles**: Music, Art, Sports, Collectibles, Books
-        *   **Tools & Equipment**: Power Tools, Hand Tools, Lawn & Garden, Workshop
-    *   Follow this detection priority: 1. Visual object recognition, 2. Context clues, 3. Size indicators, 4. Condition/usage hints, 5. Specialized features.
-
-3.  **Generate JSON Output:**
+2.  **Generate JSON Output:**
     *   You MUST respond with only a valid JSON object.
-    *   Use the following structure and fill every field with accurate and well-written content. If you cannot determine a value with high confidence, leave the field blank.
+    *   Use the following structure and fill every field with accurate and well-written content.
 
 **JSON Structure:**
 
 \`\`\`json
 {
-  "category": "The full category path (e.g., 'Home & Garden > Kitchen').",
-  "confidence": "Your confidence in the category selection ('High', 'Medium', 'Low').",
-  "brand": "The brand name (e.g., 'Seville Classics').",
-  "model": "The model name or number (e.g., 'SHE18321B').",
-  "title": "An enticing, descriptive title for the listing (e.g., 'Seville Classics Kitchen Island Cart - Stainless Steel & Wood Top').",
-  "condition": "Choose one based on the user's input and image: 'New', 'Used - Like New', 'Used - Good', 'Used - Fair'.",
+  "title": "An enticing, descriptive title for the listing.",
   "description": "A compelling, narrative description. Start with a one-sentence hook. Follow with a paragraph that details the item's features and benefits. End with a sentence about the ideal use case. Use \\n\\n for paragraph breaks.",
-  "features": [
-    "A key feature or benefit (e.g., 'Stainless steel frame and drawers').",
-    "Another key feature (e.g., 'Beautiful natural wood top').",
-    "A third key feature (e.g., 'Lower shelf for additional storage')."
-  ],
-  "dimensions": {
-    "inches": "Dimensions in inches (e.g., '36.5\\\" H x 48\\\" W x 20\\\" D').",
-    "cm": "Dimensions in centimeters (e.g., '92.7 cm H x 121.9 cm W x 50.8 cm D')."
-  },
-  "usage": "The ideal use case for the item (e.g., 'Perfect for adding extra counter space and storage to any kitchen.').",
-  "price_analysis": {
-    "suggested_price": "A specific, market-researched price (e.g., '$125').",
-    "reasoning": "Explain your pricing strategy. For example: 'I set the price based on 5 similar items found on Facebook Marketplace in the area. The description highlights the minimalist style and versatile mounting options to attract buyers looking for modern decor.'"
-  }
+  "price": "A specific, market-researched price for the used item (e.g., '$125')."
 }
 \`\`\`
 `;
