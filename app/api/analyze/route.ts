@@ -61,7 +61,9 @@ export async function POST(request: NextRequest) {
     }
     
     // ENHANCED PROMPT FOR WEB SEARCH + IMAGE ANALYSIS
-    const prompt = `You are an expert system for creating marketplace listings. Your goal is to generate a perfect, ready-to-use JSON object for a seller, following a strict set of rules.
+    const prompt = `You are a JSON-only AI. Your only output will be a single, valid JSON object. Any other output is a failure.
+
+Based on the user's image and description, create a complete and accurate marketplace listing.
 
 **User's Description:** "${userDescription}"
 
@@ -73,7 +75,7 @@ export async function POST(request: NextRequest) {
     *   Synthesize all information to create a complete and accurate listing.
 
 2.  **Categorize the Item:**
-    *   Use the following category hierarchy to classify the item. You must choose the most specific sub-category possible.
+    *   You MUST choose a category from the following list. You must choose the most specific sub-category possible.
     *   **Category Hierarchy:**
         *   **Furniture**: Living Room, Bedroom, Dining Room, Office, Outdoor
         *   **Electronics**: Computing, Mobile, Entertainment, Cameras, Home Tech
@@ -86,31 +88,34 @@ export async function POST(request: NextRequest) {
     *   Follow this detection priority: 1. Visual object recognition, 2. Context clues, 3. Size indicators, 4. Condition/usage hints, 5. Specialized features.
 
 3.  **Generate JSON Output:**
-    *   You MUST respond with only a valid JSON object. Do not include any other text or markdown.
+    *   You MUST respond with only a valid JSON object.
     *   Use the following structure and fill every field with accurate and well-written content. If you cannot determine a value with high confidence, leave the field blank.
 
 **JSON Structure:**
 
 \`\`\`json
 {
-  "category": "The full category path (e.g., 'Furniture > Dining Room').",
+  "category": "The full category path (e.g., 'Home & Garden > Kitchen').",
   "confidence": "Your confidence in the category selection ('High', 'Medium', 'Low').",
-  "brand": "The brand name (e.g., 'IKEA', 'Dyson').",
-  "model": "The model name or number (e.g., 'Hovet', 'V11').",
-  "title": "An enticing, descriptive title for the listing.",
+  "brand": "The brand name (e.g., 'Seville Classics').",
+  "model": "The model name or number (e.g., 'SHE18321B').",
+  "title": "An enticing, descriptive title for the listing (e.g., 'Seville Classics Kitchen Island Cart - Stainless Steel & Wood Top').",
   "condition": "Choose one based on the user's input and image: 'New', 'Used - Like New', 'Used - Good', 'Used - Fair'.",
   "description": "A compelling, narrative description. Start with a one-sentence hook. Follow with a paragraph that details the item's features and benefits. End with a sentence about the ideal use case. Use \\n\\n for paragraph breaks.",
   "features": [
-    "A key feature or benefit.",
-    "Another key feature.",
-    "A third key feature."
+    "A key feature or benefit (e.g., 'Stainless steel frame and drawers').",
+    "Another key feature (e.g., 'Beautiful natural wood top').",
+    "A third key feature (e.g., 'Lower shelf for additional storage')."
   ],
   "dimensions": {
-    "inches": "Dimensions in inches (e.g., '32 5/8 x 37 3/4 in.').",
-    "cm": "Dimensions in centimeters (e.g., '83 x 96 cm')."
+    "inches": "Dimensions in inches (e.g., '36.5\\\" H x 48\\\" W x 20\\\" D').",
+    "cm": "Dimensions in centimeters (e.g., '92.7 cm H x 121.9 cm W x 50.8 cm D')."
   },
-  "usage": "The ideal use case for the item (e.g., 'Perfect for a modern dining room, home office, or accent piece.').",
-  "ai_reasoning": "Explain your pricing and description strategy. For example: 'I set the price based on 5 similar items found on Facebook Marketplace in the area. The description highlights the minimalist style and versatile mounting options to attract buyers looking for modern decor.'"
+  "usage": "The ideal use case for the item (e.g., 'Perfect for adding extra counter space and storage to any kitchen.').",
+  "price_analysis": {
+    "suggested_price": "A specific, market-researched price (e.g., '$125').",
+    "reasoning": "Explain your pricing strategy. For example: 'I set the price based on 5 similar items found on Facebook Marketplace in the area. The description highlights the minimalist style and versatile mounting options to attract buyers looking for modern decor.'"
+  }
 }
 \`\`\`
 `;
