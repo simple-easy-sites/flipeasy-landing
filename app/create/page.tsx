@@ -8,7 +8,8 @@ import { ArrowLeft, Upload, Mic, MicOff, Camera, Copy, Check, Share2 } from "luc
 import Link from "next/link"
 
 interface Listing {
-  product_type: string;
+  category: string;
+  confidence: string;
   brand: string;
   model: string;
   title: string;
@@ -313,7 +314,8 @@ export default function CreateListing() {
                         <>
                           {renderListingField("Title", aiResponse.listing.title)}
                           {aiResponse.listing.price && renderListingField("Price", aiResponse.listing.price)}
-                          {renderListingField("Category", aiResponse.listing.product_type)}
+                          {renderListingField("Category", aiResponse.listing.category)}
+                          {renderListingField("Confidence", aiResponse.listing.confidence)}
                           {renderListingField("Condition", aiResponse.listing.condition)}
                           {renderListingField("Brand", aiResponse.listing.brand)}
                           {renderListingField("Model", aiResponse.listing.model)}

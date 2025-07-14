@@ -61,44 +61,55 @@ export async function POST(request: NextRequest) {
     }
     
     // ENHANCED PROMPT FOR WEB SEARCH + IMAGE ANALYSIS
-    const prompt = `You are a JSON generation machine. Your only output should be a single, valid JSON object. Do not include any other text, markdown, or explanations.
-
-Based on the user's image and description, create a complete and accurate marketplace listing.
+    const prompt = `You are an expert system for creating marketplace listings. Your goal is to generate a perfect, ready-to-use JSON object for a seller, following a strict set of rules.
 
 **User's Description:** "${userDescription}"
 
 **Instructions:**
 
 1.  **Analyze and Research:**
-    *   Identify the item, brand, model, and materials from the image and description.
-    *   Use Google Search to find the product's official name, specifications (dimensions), original retail price, and current resale value.
+    *   Thoroughly analyze the user's image and description.
+    *   Use Google Search to find the exact product name, brand, model, dimensions, materials, and current resale value.
     *   Synthesize all information to create a complete and accurate listing.
 
-2.  **Generate JSON Output:**
-    *   You MUST respond with only a valid JSON object.
+2.  **Categorize the Item:**
+    *   Use the following category hierarchy to classify the item. You must choose the most specific sub-category possible.
+    *   **Category Hierarchy:**
+        *   **Furniture**: Living Room, Bedroom, Dining Room, Office, Outdoor
+        *   **Electronics**: Computing, Mobile, Entertainment, Cameras, Home Tech
+        *   **Clothing & Accessories**: Women's, Men's, Children's, Accessories
+        *   **Baby & Kids**: Furniture, Gear, Toys, Clothing
+        *   **Home & Garden**: Kitchen, Bathroom, Decor, Garden, Storage
+        *   **Vehicles & Parts**: Vehicles, Parts, Maintenance
+        *   **Hobbies & Collectibles**: Music, Art, Sports, Collectibles, Books
+        *   **Tools & Equipment**: Power Tools, Hand Tools, Lawn & Garden, Workshop
+    *   Follow this detection priority: 1. Visual object recognition, 2. Context clues, 3. Size indicators, 4. Condition/usage hints, 5. Specialized features.
+
+3.  **Generate JSON Output:**
+    *   You MUST respond with only a valid JSON object. Do not include any other text or markdown.
     *   Use the following structure and fill every field with accurate and well-written content. If you cannot determine a value with high confidence, leave the field blank.
 
 **JSON Structure:**
 
 \`\`\`json
 {
-  "product_type": "Choose the most specific category: Antiques & Collectibles, Arts & Crafts, Auto Parts & Accessories, Baby & Kids > Clothing, Baby & Kids > Toys, Baby & Kids > Other, Books/Movies/Music, Cell Phones & Accessories, Clothing/Shoes/Accessories, Electronics, Furniture > Chairs > Dining Chairs, Furniture > Chairs > Office Chairs, Furniture > Other, Health & Beauty, Home & Kitchen, Jewelry & Watches, Miscellaneous, Musical Instruments, Office Supplies, Patio & Garden, Pets/Pet Supplies, Sporting Goods, Tools & Home Improvement, Toys & Games, Travel/Luggage, Video Games & Consoles, Vehicles, Real Estate.",
+  "category": "The full category path (e.g., 'Furniture > Dining Room').",
+  "confidence": "Your confidence in the category selection ('High', 'Medium', 'Low').",
   "brand": "The brand name (e.g., 'IKEA', 'Dyson').",
   "model": "The model name or number (e.g., 'Hovet', 'V11').",
-  "title": "An enticing, descriptive title for the listing (e.g., 'Stylish Red IKEA Tobias Acrylic Chair - Perfect Condition!').",
+  "title": "An enticing, descriptive title for the listing.",
   "condition": "Choose one based on the user's input and image: 'New', 'Used - Like New', 'Used - Good', 'Used - Fair'.",
   "description": "A compelling, narrative description. Start with a one-sentence hook. Follow with a paragraph that details the item's features and benefits. End with a sentence about the ideal use case. Use \\n\\n for paragraph breaks.",
   "features": [
     "A key feature or benefit.",
     "Another key feature.",
-    "A third key feature.",
-    "And a fourth one."
+    "A third key feature."
   ],
   "dimensions": {
-    "inches": "Dimensions in inches (e.g., '32 5/8x37 3/4 \\\"').",
-    "cm": "Dimensions in centimeters (e.g., '83x96 cm')."
+    "inches": "Dimensions in inches (e.g., '32 5/8 x 37 3/4 in.').",
+    "cm": "Dimensions in centimeters (e.g., '83 x 96 cm')."
   },
-  "usage": "The ideal use case for the item (e.g., 'Perfect for a modern dining room, home office, or accent piece in any living space.').",
+  "usage": "The ideal use case for the item (e.g., 'Perfect for a modern dining room, home office, or accent piece.').",
   "ai_reasoning": "Explain your pricing and description strategy. For example: 'I set the price based on 5 similar items found on Facebook Marketplace in the area. The description highlights the minimalist style and versatile mounting options to attract buyers looking for modern decor.'"
 }
 \`\`\`
@@ -258,7 +269,8 @@ function createIntelligentFallback(aiText: string, userDescription: string, grou
   const descriptionMatch = aiText.match(/"description":\s*"(.*?)"/s);
 
   return {
-    product_type: 'Item',
+    category: 'Miscellaneous',
+    confidence: 'Low',
     brand: '',
     model: '',
     title: titleMatch ? titleMatch[1] : 'Quality Item for Sale',
@@ -274,7 +286,8 @@ function createIntelligentFallback(aiText: string, userDescription: string, grou
 // Basic fallback when everything fails
 function createBasicFallback() {
   return {
-    product_type: 'Item',
+    category: 'Miscellaneous',
+    confidence: 'Low',
     brand: 'N/A',
     model: 'N/A',
     title: 'Item for Sale',
