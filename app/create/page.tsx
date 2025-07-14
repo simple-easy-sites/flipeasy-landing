@@ -21,7 +21,7 @@ interface Listing {
   };
   usage: string;
   ai_reasoning: string;
-  price?: string; // Price is now optional in the main listing object
+  price?: string;
 }
 
 interface AIResponse {
@@ -156,12 +156,12 @@ export default function CreateListing() {
 
   const renderListingField = (label: string, value: string | string[]) => {
     if (!value || (Array.isArray(value) && value.length === 0)) return null
-    const displayValue = Array.isArray(value) ? value.join(", ") : value
+    const displayValue = Array.isArray(value) ? value.join("\n") : value
 
     return (
-      <div className="grid grid-cols-3 gap-4 items-center">
-        <span className="text-sm font-semibold text-slate-600">{label}</span>
-        <div className="col-span-2 bg-slate-50 border border-slate-200 rounded-md px-3 py-2 text-sm text-slate-800">
+      <div className="grid grid-cols-3 gap-4 items-start">
+        <span className="text-sm font-semibold text-slate-600 pt-2">{label}</span>
+        <div className="col-span-2 bg-slate-50 border border-slate-200 rounded-md px-3 py-2 text-sm text-slate-800 whitespace-pre-wrap">
           {displayValue}
         </div>
         <Button
@@ -303,7 +303,7 @@ export default function CreateListing() {
                       {aiResponse?.listing.ai_reasoning && (
                         <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                           <h4 className="font-semibold text-blue-900 text-sm mb-2">AI Reasoning</h4>
-                          <p className="text-sm text-blue-800">{aiResponse.listing.ai_reasoning}</p>
+                          <p className="text-sm text-blue-800 whitespace-pre-wrap">{aiResponse.listing.ai_reasoning}</p>
                         </div>
                       )}
                     </div>
@@ -320,6 +320,7 @@ export default function CreateListing() {
                           {renderListingField("Dimensions (in)", aiResponse.listing.dimensions.inches)}
                           {renderListingField("Dimensions (cm)", aiResponse.listing.dimensions.cm)}
                           {renderListingField("Usage", aiResponse.listing.usage)}
+                          {renderListingField("Features", aiResponse.listing.features)}
                           
                           <div>
                             <span className="text-sm font-semibold text-slate-600">Description</span>

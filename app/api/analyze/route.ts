@@ -61,31 +61,33 @@ export async function POST(request: NextRequest) {
     }
     
     // ENHANCED PROMPT FOR WEB SEARCH + IMAGE ANALYSIS
-    const prompt = `You are an expert Craigslist and Facebook Marketplace listing creator. Your goal is to generate a perfect, ready-to-use JSON object for a seller.
+    const prompt = `You are a JSON generation machine. Your only output should be a single, valid JSON object. Do not include any other text, markdown, or explanations.
+
+Based on the user's image and description, create a complete and accurate marketplace listing.
 
 **User's Description:** "${userDescription}"
 
 **Instructions:**
 
 1.  **Analyze and Research:**
-    *   Thoroughly analyze the user's image and description.
-    *   Use Google Search to find the exact product name, brand, model, dimensions, materials, and current resale value.
+    *   Identify the item, brand, model, and materials from the image and description.
+    *   Use Google Search to find the product's official name, specifications (dimensions), original retail price, and current resale value.
     *   Synthesize all information to create a complete and accurate listing.
 
 2.  **Generate JSON Output:**
-    *   You MUST respond with only a valid JSON object. Do not include any other text or markdown.
+    *   You MUST respond with only a valid JSON object.
     *   Use the following structure and fill every field with accurate and well-written content.
 
 **JSON Structure:**
 
 \`\`\`json
 {
-  "product_type": "The general type of product (e.g., 'Mirror', 'Cordless Vacuum').",
+  "product_type": "Choose the most specific category: Antiques & Collectibles, Arts & Crafts, Auto Parts & Accessories, Baby Products, Books/Movies/Music, Cell Phones & Accessories, Clothing/Shoes/Accessories, Electronics, Furniture, Health & Beauty, Home & Kitchen, Jewelry & Watches, Miscellaneous, Musical Instruments, Office Supplies, Patio & Garden, Pets/Pet Supplies, Sporting Goods, Tools & Home Improvement, Toys & Games, Travel/Luggage, Video Games & Consoles, Vehicles, Real Estate.",
   "brand": "The brand name (e.g., 'IKEA', 'Dyson').",
   "model": "The model name or number (e.g., 'Hovet', 'V11').",
-  "title": "An enticing, descriptive title for the listing.",
-  "condition": "Choose one: 'New', 'Used - Like New', 'Used - Good', 'Used - Fair'.",
-  "description": "A compelling, narrative description. Start with an engaging overview, then list key features with bullet points. Mention the ideal use case. The description should be formatted with newline characters (\\n) for readability.",
+  "title": "An enticing, descriptive title for the listing (e.g., 'Stylish Red IKEA Tobias Acrylic Chair - Perfect Condition!').",
+  "condition": "Choose one based on the user's input and image: 'New', 'Used - Like New', 'Used - Good', 'Used - Fair'.",
+  "description": "A compelling, narrative description. Start with a one-sentence hook. Follow with a paragraph that details the item's features and benefits. End with a sentence about the ideal use case. Use \\n for newlines.",
   "features": [
     "A key feature or benefit.",
     "Another key feature.",
@@ -93,16 +95,13 @@ export async function POST(request: NextRequest) {
     "And a fourth one."
   ],
   "dimensions": {
-    "inches": "Dimensions in inches (e.g., '63\\\" x 31\\\"').",
-    "cm": "Dimensions in centimeters (e.g., '160 cm x 78 cm')."
+    "inches": "Dimensions in inches (e.g., '32 5/8x37 3/4 \\\"').",
+    "cm": "Dimensions in centimeters (e.g., '83x96 cm')."
   },
-  "usage": "The ideal use case for the item (e.g., 'Bedrooms, hallways, entryways').",
+  "usage": "The ideal use case for the item (e.g., 'Perfect for a modern dining room, home office, or accent piece in any living space.').",
   "ai_reasoning": "Explain your pricing and description strategy. For example: 'I set the price based on 5 similar items found on Facebook Marketplace in the area. The description highlights the minimalist style and versatile mounting options to attract buyers looking for modern decor.'"
 }
 \`\`\`
-
-**Example of a good description:**
-"Add modern elegance to your space with the sleek IKEA Hovet mirror.\\n\\nFeaturing clean lines and a slim aluminum frame, this mirror fits effortlessly into any decor. It can be mounted vertically or horizontally to suit your layout.\\n\\n**Key Features:**\\n- Full-length design: Great for full outfit checks\\n- Flexible mounting: Hang vertically or horizontally\\n- Minimalist style: Slim aluminum frame\\n- Excellent condition: No damage, lightly used"
 `;
 
     const requestBody = {
