@@ -62,44 +62,53 @@ export async function POST(request: NextRequest) {
     }
     
     // SIMPLIFIED PROMPT THAT RETURNS EXACTLY WHAT FRONTEND EXPECTS
-    const prompt = `You are a marketplace listing generator. Analyze the image and user description to create 3 different listing options.
+    const prompt = `You are a "deep-dive" AI listing generator. Your goal is to perform a thorough analysis of the user's item and then generate a JSON object with three distinct, high-quality listing options.
 
-User Description: "${userDescription}"
+**User's Description:** "${userDescription}"
 
-You MUST respond with ONLY a valid JSON object in this EXACT format:
+**Instructions:**
 
+1.  **Deep-Dive Analysis:**
+    *   **Visual Analysis:** First, analyze the image to identify the item's key visual characteristics (e.g., color, material, style).
+    *   **Web Search & Identification:** Use these visual cues and the user's description to perform a Google search to identify the exact product name, brand, and model.
+    *   **Market Research:** Perform a second Google search to find the price of similar new and used items, as well as any other relevant details (e.g., materials, dimensions).
+
+2.  **Generate JSON Output:**
+    *   You MUST respond with only a valid JSON object.
+    *   The root of the object should be a "listings" array.
+    *   Each object in the "listings" array should have a unique persona: "The Professional," "The Storyteller," and "The Marketer."
+    *   The descriptions must be "robust" and "detailed," using the information you have gathered.
+
+**JSON Structure:**
+
+\`\`\`json
 {
   "listings": [
     {
       "persona": "The Professional",
-      "title": "Brief, factual title under 60 characters",
-      "description": "Professional description with features and condition details",
-      "price": "$XX",
-      "reasoning": "Why this approach works for serious buyers"
+      "title": "A clean, straightforward title that includes the brand and model.",
+      "description": "A detailed, fact-based description that includes the item's key features, specifications, and condition. Use \\n\\n for paragraph breaks.",
+      "price": "A fair market price based on your research.",
+      "reasoning": "Explain your choice of title, description, and price, and reference the research you have done."
     },
     {
-      "persona": "The Storyteller", 
-      "title": "Engaging title that tells a story",
-      "description": "Description that includes the user's story and emotional connection",
-      "price": "$XX",
-      "reasoning": "Why storytelling helps connect with buyers"
+      "persona": "The Storyteller",
+      "title": "A more creative, narrative-driven title that evokes a feeling.",
+      "description": "A description that tells a story about the item, using details from the user's input and your research to create an emotional connection. Use \\n\\n for paragraph breaks.",
+      "price": "A price that reflects the item's story and unique value.",
+      "reasoning": "Explain how the story and emotional connection justify the price."
     },
     {
       "persona": "The Marketer",
-      "title": "Compelling title that creates urgency",
-      "description": "Marketing-focused description that highlights value and creates urgency",
-      "price": "$XX", 
-      "reasoning": "Why this approach drives quick sales"
+      "title": "A sales-focused title that creates urgency and highlights a key benefit.",
+      "description": "A persuasive description that uses marketing language to highlight the item's value, create a sense of urgency, and encourage a quick sale. Use \\n\\n for paragraph breaks.",
+      "price": "A competitive price designed to sell quickly.",
+      "reasoning": "Explain how the title, description, and price work together to create a compelling marketing message."
     }
   ]
 }
-
-Important:
-- Prices should be realistic based on the item condition
-- Keep titles under 60 characters
-- Make descriptions 2-3 sentences
-- Base everything on what you see in the image + user description
-- DO NOT include any text before or after the JSON`;
+\`\`\`
+`;
 
     const requestBody = {
       contents: [{
