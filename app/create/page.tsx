@@ -196,57 +196,227 @@ export default function CreateListing() {
             )}
 
             {currentStep === "recording" && (
-              <motion.div key="recording" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-8">
-                <div className="text-center">
-                  <h1 className="text-3xl lg:text-4xl font-light text-slate-900 mb-4">Tell us about your item</h1>
-                  <p className="text-lg text-slate-600">Speak naturally or type a description</p>
-                </div>
-                <div className="grid lg:grid-cols-2 gap-8">
-                  <div>
-                    <img src={photoPreview} alt="Item" className="w-full rounded-lg shadow-lg" />
-                  </div>
-                  <div className="space-y-6">
-                    <Card className="p-6 bg-white/80 backdrop-blur-xl">
-                      <h3 className="text-lg font-semibold mb-4">🎤 Voice Description (Recommended)</h3>
-                      {!isRecording && !recording && (
-                        <Button onClick={startRecording} className="w-full bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white py-4 font-medium">
-                          <Mic className="w-5 h-5 mr-2" />
-                          Start Recording
-                        </Button>
-                      )}
-                      {isRecording && (
-                        <div className="text-center space-y-4">
-                          <motion.div className="w-20 h-20 mx-auto bg-red-500 rounded-full flex items-center justify-center" animate={{ scale: [1, 1.1, 1] }} transition={{ duration: 1, repeat: Number.POSITIVE_INFINITY }}>
-                            <MicOff className="w-8 h-8 text-white" />
-                          </motion.div>
-                          <div className="text-lg font-medium">Recording... {formatRecordingTime(recordingDuration)}</div>
-                          <Button onClick={stopRecording} variant="outline" className="border-red-300 text-red-600 hover:bg-red-50">
-                            Stop Recording
-                          </Button>
-                        </div>
-                      )}
-                      {recording && (
-                        <div className="space-y-4">
-                          <div className="text-center">
-                            <div className="text-green-600 font-medium mb-4">✅ Recording saved ({formatRecordingTime(recordingDuration)})</div>
-                            <Button onClick={() => { setRecording(null); setRecordingDuration(0); }} variant="outline" size="sm">
-                              Record Again
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-                    </Card>
-                    <Card className="p-6 bg-white/80 backdrop-blur-xl">
-                      <h3 className="text-lg font-semibold mb-4">✏️ Or type a description</h3>
-                      <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Tell us about your item: condition, where you got it, why you're selling..." className="w-full h-32 p-4 border border-slate-300 rounded-lg resize-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent" />
-                    </Card>
-                    <Button onClick={processWithAI} disabled={!recording && !description.trim()} className="w-full bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 disabled:from-gray-300 disabled:to-gray-400 text-white py-4 font-semibold text-lg">
-                      Create My Listing ✨
-                    </Button>
-                  </div>
-                </div>
+  <motion.div 
+    key="recording" 
+    initial={{ opacity: 0, y: 20 }} 
+    animate={{ opacity: 1, y: 0 }} 
+    exit={{ opacity: 0, y: -20 }} 
+    className="space-y-8"
+  >
+    <div className="text-center">
+      <h1 className="text-3xl lg:text-4xl font-light text-slate-900 mb-4">
+        Tell us about your item
+      </h1>
+      <p className="text-lg text-slate-600">
+        The more details you provide, the better your listing will be
+      </p>
+    </div>
+
+    <div className="grid lg:grid-cols-2 gap-8">
+      {/* Photo Preview */}
+      <div className="space-y-4">
+        <img 
+          src={photoPreview} 
+          alt="Item" 
+          className="w-full rounded-lg shadow-lg border border-slate-200" 
+        />
+        <Button 
+          onClick={() => setCurrentStep("upload")} 
+          variant="outline" 
+          size="sm"
+          className="w-full text-slate-600 border-slate-300"
+        >
+          Change Photo
+        </Button>
+      </div>
+
+      {/* Recording Interface */}
+      <div className="space-y-6">
+        {/* Recording Guide */}
+        <Card className="p-6 bg-slate-50/50 backdrop-blur-xl border-slate-200">
+          <h3 className="text-lg font-semibold mb-4 text-slate-900">
+            What to include in your description
+          </h3>
+          <div className="grid gap-3 text-sm text-slate-700">
+            <div className="flex items-start space-x-3">
+              <div className="w-2 h-2 bg-cyan-500 rounded-full mt-2 flex-shrink-0"></div>
+              <span>What is this item and where did you get it?</span>
+            </div>
+            <div className="flex items-start space-x-3">
+              <div className="w-2 h-2 bg-cyan-500 rounded-full mt-2 flex-shrink-0"></div>
+              <span>How long have you owned it?</span>
+            </div>
+            <div className="flex items-start space-x-3">
+              <div className="w-2 h-2 bg-cyan-500 rounded-full mt-2 flex-shrink-0"></div>
+              <span>What condition is it in? Any wear or damage?</span>
+            </div>
+            <div className="flex items-start space-x-3">
+              <div className="w-2 h-2 bg-cyan-500 rounded-full mt-2 flex-shrink-0"></div>
+              <span>What material is it made of?</span>
+            </div>
+            <div className="flex items-start space-x-3">
+              <div className="w-2 h-2 bg-cyan-500 rounded-full mt-2 flex-shrink-0"></div>
+              <span>What size or dimensions?</span>
+            </div>
+            <div className="flex items-start space-x-3">
+              <div className="w-2 h-2 bg-cyan-500 rounded-full mt-2 flex-shrink-0"></div>
+              <span>Why are you selling it?</span>
+            </div>
+            <div className="flex items-start space-x-3">
+              <div className="w-2 h-2 bg-cyan-500 rounded-full mt-2 flex-shrink-0"></div>
+              <span>What did you love most about it?</span>
+            </div>
+            <div className="flex items-start space-x-3">
+              <div className="w-2 h-2 bg-cyan-500 rounded-full mt-2 flex-shrink-0"></div>
+              <span>Does it come with anything extra?</span>
+            </div>
+            <div className="flex items-start space-x-3">
+              <div className="w-2 h-2 bg-cyan-500 rounded-full mt-2 flex-shrink-0"></div>
+              <span>Any special features or details buyers should know?</span>
+            </div>
+          </div>
+        </Card>
+
+        {/* Voice Recording Section */}
+        <Card className="p-6 bg-white/80 backdrop-blur-xl border-slate-200">
+          <h3 className="text-lg font-semibold mb-4 text-slate-900">
+            Voice Description (Recommended)
+          </h3>
+          
+          {!isRecording && !recording && (
+            <div className="space-y-4">
+              <p className="text-sm text-slate-600 mb-4">
+                Speak naturally about your item. Our AI works best with conversational descriptions.
+              </p>
+              <Button 
+                onClick={startRecording} 
+                className="w-full bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 text-white py-4 font-medium transition-all duration-200"
+              >
+                <Mic className="w-5 h-5 mr-2" />
+                Start Recording
+              </Button>
+              <p className="text-xs text-slate-500 text-center">
+                Maximum 2 minutes • Tap when ready to speak
+              </p>
+            </div>
+          )}
+
+          {isRecording && (
+            <div className="text-center space-y-6">
+              <motion.div 
+                className="w-20 h-20 mx-auto bg-gradient-to-br from-red-500 to-red-600 rounded-full flex items-center justify-center shadow-lg" 
+                animate={{ scale: [1, 1.05, 1] }} 
+                transition={{ duration: 1.5, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}
+              >
+                <Mic className="w-8 h-8 text-white" />
               </motion.div>
+              
+              <div className="space-y-2">
+                <div className="text-lg font-medium text-slate-900">
+                  Recording in progress
+                </div>
+                <div className="text-2xl font-mono font-bold text-red-600">
+                  {formatRecordingTime(recordingDuration)}
+                </div>
+              </div>
+
+              <div className="flex justify-center space-x-4">
+                <Button 
+                  onClick={stopRecording} 
+                  className="bg-red-500 hover:bg-red-600 text-white px-6 py-2"
+                >
+                  <MicOff className="w-4 h-4 mr-2" />
+                  Stop Recording
+                </Button>
+              </div>
+
+              <p className="text-sm text-slate-600">
+                Speak clearly and naturally. Include as many details as possible.
+              </p>
+            </div>
+          )}
+
+          {recording && (
+            <div className="space-y-4">
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <div className="flex items-center space-x-3">
+                  <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
+                    <Check className="w-4 h-4 text-white" />
+                  </div>
+                  <div>
+                    <div className="font-medium text-green-900">
+                      Recording saved successfully
+                    </div>
+                    <div className="text-sm text-green-700">
+                      Duration: {formatRecordingTime(recordingDuration)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <Button 
+                onClick={() => { 
+                  setRecording(null); 
+                  setRecordingDuration(0); 
+                }} 
+                variant="outline" 
+                size="sm"
+                className="w-full border-slate-300 text-slate-700"
+              >
+                Record Again
+              </Button>
+            </div>
+          )}
+        </Card>
+
+        {/* Text Input Alternative */}
+        <Card className="p-6 bg-white/80 backdrop-blur-xl border-slate-200">
+          <h3 className="text-lg font-semibold mb-4 text-slate-900">
+            Or type your description
+          </h3>
+          <textarea 
+            value={description} 
+            onChange={(e) => setDescription(e.target.value)} 
+            placeholder="Describe your item in detail. Include condition, where you got it, how long you've had it, why you're selling, and any special features..."
+            className="w-full h-32 p-4 border border-slate-300 rounded-lg resize-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-sm leading-relaxed"
+            maxLength={1000}
+          />
+          <div className="flex justify-between items-center mt-2">
+            <span className="text-xs text-slate-500">
+              {description.length}/1000 characters
+            </span>
+            {description.length > 0 && (
+              <span className="text-xs text-green-600">
+                Great! This will help create a better listing
+              </span>
             )}
+          </div>
+        </Card>
+
+        {/* Generate Button */}
+        <div className="space-y-3">
+          <Button 
+            onClick={processWithAI} 
+            disabled={!recording && !description.trim()} 
+            className="w-full bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 disabled:from-gray-300 disabled:to-gray-400 text-white py-4 font-semibold text-lg transition-all duration-200"
+          >
+            {!recording && !description.trim() ? (
+              "Record or type a description to continue"
+            ) : (
+              "Create My Professional Listing"
+            )}
+          </Button>
+          
+          {(recording || description.trim()) && (
+            <p className="text-xs text-center text-slate-600">
+              This usually takes 1-2 minutes. We're analyzing your item and creating optimized listings for different platforms.
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  </motion.div>
+)}
 
             {currentStep === "processing" && (
               <motion.div key="processing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-center space-y-8">
