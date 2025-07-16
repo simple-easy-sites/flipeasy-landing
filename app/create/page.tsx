@@ -1,360 +1,338 @@
-'use client';
+"use client"
 
-import { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Camera, Mic, Copy, RefreshCw, CheckCircle } from 'lucide-react';
+import { useState, useRef } from "react"
+import { motion, AnimatePresence } from "framer-motion"
+import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
+import { ArrowLeft, Upload, Mic, MicOff, Camera, Copy, Check, Share2 } from "lucide-react"
+import Link from "next/link"
 
-interface ListingData {
+interface ListingOption {
+  persona: string;
   title: string;
   description: string;
-  condition: string;
-  category: string;
-  pricing: {
-    quick_sale: string;
-    market_value: string;
-    optimistic: string;
-  };
-  selling_tips: string[];
+  price: string;
+  reasoning: string;
+}
+
+interface AIResponse {
+  success?: boolean
+  web_search_used?: boolean
+  fallback_mode?: boolean
+  search_queries?: string[]
+  listings: ListingOption[];
 }
 
 export default function CreateListing() {
-  const [image, setImage] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string>('');
-  const [description, setDescription] = useState('');
-  const [isRecording, setIsRecording] = useState(false);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [listing, setListing] = useState<ListingData | null>(null);
-  const [error, setError] = useState('');
-  const [copied, setCopied] = useState(false);
+  const [currentStep, setCurrentStep] = useState<"upload" | "recording" | "processing" | "results">("upload")
+  const [uploadedPhoto, setUploadedPhoto] = useState<File | null>(null)
+  const [photoPreview, setPhotoPreview] = useState<string>("")
+  const [recording, setRecording] = useState<Blob | null>(null)
+  const [isRecording, setIsRecording] = useState(false)
+  const [recordingDuration, setRecordingDuration] = useState(0)
+  const [description, setDescription] = useState("")
+  const [aiResponse, setAiResponse] = useState<AIResponse | null>(null)
+  const [selectedListing, setSelectedListing] = useState<ListingOption | null>(null)
+  const [copied, setCopied] = useState(false)
+  const [processingStatus, setProcessingStatus] = useState("Creating your listing...")
 
-  const recordingPrompts = [
-    "Tell me about this item...",
-    "What material is it made of?",
-    "Where did you buy it?",
-    "How long have you had it?",
-    "What condition is it in?",
-    "Why are you selling it?",
-    "What did you love about it?",
-    "What size or dimensions?",
-    "Any flaws or wear to mention?"
-  ];
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const recordingTimerRef = useRef<NodeJS.Timeout | null>(null)
 
-  const [currentPrompt, setCurrentPrompt] = useState(0);
+  const handlePhotoUpload = (file: File) => {
+    setUploadedPhoto(file)
+    setPhotoPreview(URL.createObjectURL(file))
+    setCurrentStep("recording")
+  }
 
-  // Rotate prompts every 3 seconds
-  useEffect(() => {
-    if (!isRecording) return;
-    
-    const interval = setInterval(() => {
-      setCurrentPrompt((prev) => (prev + 1) % recordingPrompts.length);
-    }, 3000);
-    
-    return () => clearInterval(interval);
-  }, [isRecording]);
-
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
     if (file) {
-      setImage(file);
-      setImagePreview(URL.createObjectURL(file));
-      setListing(null); // Reset results when new image uploaded
+      handlePhotoUpload(file)
     }
-  };
+  }
 
-  const handleVoiceRecording = async () => {
-    if (!isRecording) {
-      setIsRecording(true);
-      setCurrentPrompt(0);
-      setDescription("🎤 Recording your description...");
-      
-      // Simulate 10-second recording (replace with actual speech-to-text later)
-      setTimeout(() => {
-        setIsRecording(false);
-        setDescription("Great! I got your description. Click 'Generate My Listing' to create your professional listing.");
-      }, 10000);
-    } else {
-      setIsRecording(false);
-    }
-  };
-
-  const analyzeImage = async () => {
-    if (!image) return;
-
-    setIsAnalyzing(true);
-    setError('');
-
+  const startRecording = async () => {
     try {
-      const formData = new FormData();
-      formData.append('image', image);
-      formData.append('description', description);
-      formData.append('location', 'United States');
-
-      const response = await fetch('/api/analyze', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to analyze image');
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const mediaRecorder = new MediaRecorder(stream)
+      mediaRecorderRef.current = mediaRecorder
+      const audioChunks: BlobPart[] = []
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunks.push(event.data)
+        }
       }
-
-      const data = await response.json();
-      setListing(data);
-    } catch (err) {
-      setError('Failed to analyze image. Please try again.');
-      console.error(err);
-    } finally {
-      setIsAnalyzing(false);
+      mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(audioChunks, { type: "audio/wav" })
+        setRecording(audioBlob)
+        stream.getTracks().forEach((track) => track.stop())
+      }
+      mediaRecorder.onstart = () => {
+        setIsRecording(true)
+        setRecordingDuration(0)
+        recordingTimerRef.current = setInterval(() => {
+          setRecordingDuration((prev) => prev + 1)
+        }, 1000)
+      }
+      mediaRecorder.start()
+    } catch (error) {
+      console.error("Error starting recording:", error)
+      alert("Recording failed. Please try using the text input instead.")
     }
-  };
+  }
 
-  const generateFullListing = () => {
-    if (!listing) return '';
-    
-    return `${listing.title}
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop()
+      setIsRecording(false)
+      if (recordingTimerRef.current) {
+        clearInterval(recordingTimerRef.current)
+      }
+    }
+  }
 
-${listing.description}
+  const processWithAI = async () => {
+    if (!uploadedPhoto) return
+    setCurrentStep("processing")
+    const statuses = [
+      "🔍 Analyzing your photo and description...",
+      "💰 Researching local market prices...",
+      "✍️ Writing your professional listing...",
+      "✨ Almost ready...",
+    ]
+    let statusIndex = 0
+    const statusInterval = setInterval(() => {
+      statusIndex = (statusIndex + 1) % statuses.length
+      setProcessingStatus(statuses[statusIndex])
+    }, 3000)
 
-Condition: ${listing.condition}
-Category: ${listing.category}
-
-Pricing Options:
-💵 Quick Sale: ${listing.pricing.quick_sale}
-💎 Market Value: ${listing.pricing.market_value}
-🏆 Optimistic: ${listing.pricing.optimistic}
-
-Selling Tips:
-${listing.selling_tips.map(tip => `• ${tip}`).join('\n')}
-
-Generated with FlipEasy - Turn clutter into cash in 60 seconds!`;
-  };
-
-  const copyToClipboard = async () => {
-    const fullListing = generateFullListing();
     try {
-      await navigator.clipboard.writeText(fullListing);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error('Failed to copy:', err);
+      const formData = new FormData()
+      formData.append("image", uploadedPhoto)
+      formData.append("description", description)
+      if (recording) {
+        formData.append("audio", recording, "audio.wav")
+      }
+      const response = await fetch("/api/analyze", {
+        method: "POST",
+        body: formData,
+      })
+      if (!response.ok) {
+        throw new Error("Failed to analyze image")
+      }
+      const result = await response.json()
+      setAiResponse(result)
+      if (result.listings && result.listings.length > 0) {
+        setSelectedListing(result.listings[0])
+      }
+      setCurrentStep("results")
+    } catch (error) {
+      console.error("Error processing with AI:", error)
+      setCurrentStep("results") // Go to results even on error to show fallback
+    } finally {
+      clearInterval(statusInterval)
     }
-  };
+  }
+
+  const formatRecordingTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    return `${mins}:${secs.toString().padStart(2, "0")}`
+  }
+
+  const handleCopy = () => {
+    if (!selectedListing) return
+    const { title, price, description } = selectedListing
+    const fullListing = `Title: ${title}\n\nPrice: ${price}\n\nDescription:\n${description.replace(/\\n\\n/g, '\n\n').replace(/\\n/g, '\n')}`
+    navigator.clipboard.writeText(fullListing).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-      <div className="max-w-md mx-auto space-y-6">
-        
-        {/* Header */}
-        <div className="text-center py-4">
-          <h1 className="text-2xl font-bold text-gray-900">FlipEasy</h1>
-          <p className="text-gray-600">Turn clutter into cash in 60 seconds</p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-cyan-50/30">
+      <header className="px-4 py-6 border-b border-slate-200/50 bg-white/60 backdrop-blur-xl">
+        <div className="max-w-4xl mx-auto flex items-center justify-between">
+          <Link href="/" className="flex items-center space-x-3 text-slate-700 hover:text-slate-900 transition-colors">
+            <ArrowLeft className="w-5 h-5" />
+            <span className="font-medium">Back to Home</span>
+          </Link>
+          <span className="text-2xl font-bold bg-gradient-to-r from-slate-900 via-cyan-700 to-slate-900 bg-clip-text text-transparent">
+            FlipEasy
+          </span>
         </div>
-        
-        {/* Photo Upload */}
-        <Card>
-          <CardContent className="p-6">
-            <h2 className="text-xl font-bold mb-4 flex items-center">
-              📸 <span className="ml-2">1. Take a Photo</span>
-            </h2>
-            {imagePreview ? (
-              <div className="space-y-4">
-                <img src={imagePreview} alt="Item" className="w-full h-48 object-cover rounded-lg border-2 border-gray-200" />
-                <Button 
-                  variant="outline" 
-                  onClick={() => {
-                    setImagePreview('');
-                    setImage(null);
-                    setListing(null);
-                  }}
-                  className="w-full"
-                >
-                  Take New Photo
-                </Button>
-              </div>
-            ) : (
-              <label className="block cursor-pointer">
-                <input
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  onChange={handleImageUpload}
-                  className="hidden"
-                />
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition-colors">
-                  <Camera className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                  <p className="text-gray-600 font-medium">Tap to take photo</p>
-                  <p className="text-sm text-gray-500 mt-1">Works best with good lighting</p>
+      </header>
+
+      <main className="px-4 py-12">
+        <div className="max-w-4xl mx-auto">
+          <AnimatePresence mode="wait">
+            {currentStep === "upload" && (
+              <motion.div key="upload" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="text-center space-y-8">
+                <div>
+                  <h1 className="text-3xl lg:text-4xl font-light text-slate-900 mb-4">Take a photo of your item</h1>
+                  <p className="text-lg text-slate-600">Any angle works - our AI will enhance it automatically</p>
                 </div>
-              </label>
+                <Card className="p-12 border-2 border-dashed border-slate-300 hover:border-cyan-400 transition-colors bg-white/60 backdrop-blur-xl cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+                  <div className="space-y-6">
+                    <Camera className="w-16 h-16 mx-auto text-slate-400" />
+                    <div>
+                      <h3 className="text-xl font-semibold text-slate-900 mb-2">Upload Photo</h3>
+                      <p className="text-slate-600">Click here or drag and drop your image</p>
+                    </div>
+                    <Button className="bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 text-white px-8 py-3 font-medium">
+                      <Upload className="w-5 h-5 mr-2" />
+                      Choose Photo
+                    </Button>
+                  </div>
+                  <input ref={fileInputRef} type="file" accept="image/*" capture="environment" onChange={handleFileSelect} className="hidden" />
+                </Card>
+                <div className="text-sm text-slate-500">
+                  📱 On mobile? Tap to use your camera directly
+                </div>
+              </motion.div>
             )}
-          </CardContent>
-        </Card>
 
-        {/* Voice Recording */}
-        {imagePreview && (
-          <Card>
-            <CardContent className="p-6">
-              <h2 className="text-xl font-bold mb-4 flex items-center">
-                🎤 <span className="ml-2">2. Tell Me About It</span>
-              </h2>
-              
-              <div className="text-center space-y-4">
-                <div className="bg-blue-50 rounded-lg p-4 min-h-[60px] flex items-center justify-center">
-                  <p className="text-blue-800 font-medium">
-                    {recordingPrompts[currentPrompt]}
-                  </p>
+            {currentStep === "recording" && (
+              <motion.div key="recording" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-8">
+                <div className="text-center">
+                  <h1 className="text-3xl lg:text-4xl font-light text-slate-900 mb-4">Tell us about your item</h1>
+                  <p className="text-lg text-slate-600">Speak naturally or type a description</p>
                 </div>
-                
-                <Button
-                  onClick={handleVoiceRecording}
-                  disabled={isAnalyzing}
-                  className={`w-24 h-24 rounded-full transition-all ${
-                    isRecording 
-                      ? 'bg-red-500 hover:bg-red-600 animate-pulse scale-110' 
-                      : 'bg-blue-500 hover:bg-blue-600'
-                  }`}
-                >
-                  <Mic className="h-8 w-8 text-white" />
-                </Button>
-                
-                <p className="text-sm text-gray-600">
-                  {isRecording 
-                    ? 'Recording... speak naturally (60 sec max)' 
-                    : 'Tap to record your description'
-                  }
-                </p>
-              </div>
-
-              {/* Manual input option */}
-              <div className="mt-6">
-                <label className="block text-sm font-medium mb-2 text-gray-700">
-                  Or type your description:
-                </label>
-                <textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  rows={4}
-                  placeholder="Tell me about this item - where you got it, how long you've had it, why you're selling..."
-                />
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Generate Listing */}
-        {imagePreview && description && !isRecording && (
-          <Card>
-            <CardContent className="p-6">
-              <Button
-                onClick={analyzeImage}
-                disabled={isAnalyzing}
-                className="w-full bg-green-500 hover:bg-green-600 text-white py-4 text-lg font-semibold"
-              >
-                {isAnalyzing ? (
-                  <>
-                    <RefreshCw className="animate-spin mr-2 h-5 w-5" />
-                    Creating Your Listing...
-                  </>
-                ) : (
-                  <>
-                    ✨ Generate My Listing
-                  </>
-                )}
-              </Button>
-              
-              {error && (
-                <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-md">
-                  <p className="text-red-600 text-sm">{error}</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Results */}
-        {listing && (
-          <Card className="border-green-200 bg-green-50">
-            <CardContent className="p-6">
-              <h2 className="text-xl font-bold mb-4 text-green-800 flex items-center">
-                🎉 <span className="ml-2">Your Listing is Ready!</span>
-              </h2>
-              
-              <div className="space-y-4">
-                <div className="bg-white rounded-lg p-4">
-                  <h3 className="font-semibold text-gray-900 mb-2">📝 Title</h3>
-                  <p className="text-gray-700 font-medium">{listing.title}</p>
-                </div>
-                
-                <div className="bg-white rounded-lg p-4">
-                  <h3 className="font-semibold text-gray-900 mb-2">📄 Description</h3>
-                  <p className="text-gray-700 whitespace-pre-line text-sm leading-relaxed">
-                    {listing.description}
-                  </p>
-                </div>
-                
-                <div className="bg-white rounded-lg p-4">
-                  <h3 className="font-semibold text-gray-900 mb-3">💰 Suggested Pricing</h3>
-                  <div className="grid grid-cols-1 gap-2">
-                    <div className="flex justify-between items-center p-2 bg-blue-50 rounded">
-                      <span className="text-sm font-medium">💵 Quick Sale</span>
-                      <span className="font-bold text-blue-600">{listing.pricing.quick_sale}</span>
-                    </div>
-                    <div className="flex justify-between items-center p-2 bg-green-50 rounded">
-                      <span className="text-sm font-medium">💎 Market Value</span>
-                      <span className="font-bold text-green-600">{listing.pricing.market_value}</span>
-                    </div>
-                    <div className="flex justify-between items-center p-2 bg-purple-50 rounded">
-                      <span className="text-sm font-medium">🏆 Optimistic</span>
-                      <span className="font-bold text-purple-600">{listing.pricing.optimistic}</span>
-                    </div>
+                <div className="grid lg:grid-cols-2 gap-8">
+                  <div>
+                    <img src={photoPreview} alt="Item" className="w-full rounded-lg shadow-lg" />
+                  </div>
+                  <div className="space-y-6">
+                    <Card className="p-6 bg-white/80 backdrop-blur-xl">
+                      <h3 className="text-lg font-semibold mb-4">🎤 Voice Description (Recommended)</h3>
+                      {!isRecording && !recording && (
+                        <Button onClick={startRecording} className="w-full bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white py-4 font-medium">
+                          <Mic className="w-5 h-5 mr-2" />
+                          Start Recording
+                        </Button>
+                      )}
+                      {isRecording && (
+                        <div className="text-center space-y-4">
+                          <motion.div className="w-20 h-20 mx-auto bg-red-500 rounded-full flex items-center justify-center" animate={{ scale: [1, 1.1, 1] }} transition={{ duration: 1, repeat: Number.POSITIVE_INFINITY }}>
+                            <MicOff className="w-8 h-8 text-white" />
+                          </motion.div>
+                          <div className="text-lg font-medium">Recording... {formatRecordingTime(recordingDuration)}</div>
+                          <Button onClick={stopRecording} variant="outline" className="border-red-300 text-red-600 hover:bg-red-50">
+                            Stop Recording
+                          </Button>
+                        </div>
+                      )}
+                      {recording && (
+                        <div className="space-y-4">
+                          <div className="text-center">
+                            <div className="text-green-600 font-medium mb-4">✅ Recording saved ({formatRecordingTime(recordingDuration)})</div>
+                            <Button onClick={() => { setRecording(null); setRecordingDuration(0); }} variant="outline" size="sm">
+                              Record Again
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </Card>
+                    <Card className="p-6 bg-white/80 backdrop-blur-xl">
+                      <h3 className="text-lg font-semibold mb-4">✏️ Or type a description</h3>
+                      <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Tell us about your item: condition, where you got it, why you're selling..." className="w-full h-32 p-4 border border-slate-300 rounded-lg resize-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent" />
+                    </Card>
+                    <Button onClick={processWithAI} disabled={!recording && !description.trim()} className="w-full bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 disabled:from-gray-300 disabled:to-gray-400 text-white py-4 font-semibold text-lg">
+                      Create My Listing ✨
+                    </Button>
                   </div>
                 </div>
-                
-                <div className="bg-white rounded-lg p-4">
-                  <h3 className="font-semibold text-gray-900 mb-3">✅ Selling Tips</h3>
-                  <ul className="space-y-2">
-                    {listing.selling_tips.map((tip, index) => (
-                      <li key={index} className="text-sm text-gray-700 flex items-start">
-                        <span className="text-green-500 mr-2 mt-0.5">•</span>
-                        <span>{tip}</span>
-                      </li>
-                    ))}
-                  </ul>
+              </motion.div>
+            )}
+
+            {currentStep === "processing" && (
+              <motion.div key="processing" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-center space-y-8">
+                <div>
+                  <h1 className="text-3xl lg:text-4xl font-light text-slate-900 mb-4">Creating your listing</h1>
+                  <p className="text-lg text-slate-600">This usually takes 1-3 minutes - we're building you a perfect marketplace listing!</p>
                 </div>
-                
-                <Button
-                  onClick={copyToClipboard}
-                  className={`w-full py-4 text-lg font-semibold transition-all ${
-                    copied 
-                      ? 'bg-green-600 hover:bg-green-700' 
-                      : 'bg-blue-500 hover:bg-blue-600'
-                  } text-white`}
-                >
-                  {copied ? (
-                    <>
-                      <CheckCircle className="mr-2 h-5 w-5" />
-                      Copied to Clipboard!
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="mr-2 h-5 w-5" />
-                      Copy Complete Listing
-                    </>
-                  )}
-                </Button>
-                
-                <div className="text-center mt-4">
-                  <p className="text-sm text-gray-600">
-                    Now paste this into Facebook Marketplace, Craigslist, or OfferUp!
-                  </p>
+                <div className="space-y-6">
+                  <motion.div className="w-24 h-24 mx-auto bg-gradient-to-br from-cyan-100 to-orange-100 rounded-full flex items-center justify-center" animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Number.POSITIVE_INFINITY, ease: "linear" }}>
+                    <div className="w-16 h-16 bg-gradient-to-br from-cyan-500 to-orange-500 rounded-full"></div>
+                  </motion.div>
+                  <motion.div key={processingStatus} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="text-lg text-slate-700 font-medium">
+                    {processingStatus}
+                  </motion.div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-      </div>
+              </motion.div>
+            )}
+
+            {currentStep === "results" && (
+              <motion.div key="results" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-8">
+                <div className="text-center">
+                  <h1 className="text-3xl lg:text-4xl font-light text-slate-900 mb-4">🎉 Your listing is ready!</h1>
+                  <p className="text-lg text-slate-600">Choose an option below, or mix and match to create the perfect listing.</p>
+                </div>
+
+                <Card className="p-8 bg-white shadow-xl max-w-4xl mx-auto">
+                  <div className="grid lg:grid-cols-2 gap-8">
+                    <div>
+                      <img src={photoPreview || "/placeholder.svg"} alt="Item" className="w-full rounded-lg shadow-lg" />
+                    </div>
+                    <div className="space-y-4">
+                      {aiResponse?.listings && aiResponse.listings.length > 0 ? (
+                        <>
+                          <div className="flex space-x-2">
+                            {aiResponse.listings.map((listing, index) => (
+                              <Button
+                                key={index}
+                                variant={selectedListing?.persona === listing.persona ? "default" : "outline"}
+                                onClick={() => setSelectedListing(listing)}
+                              >
+                                {listing.persona}
+                              </Button>
+                            ))}
+                          </div>
+                          {selectedListing && (
+                            <div className="space-y-4">
+                              <h2 className="text-2xl font-bold text-slate-900">{selectedListing.title}</h2>
+                              <p className="text-3xl font-bold text-green-600">{selectedListing.price}</p>
+                              <div className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
+                                {selectedListing.description.replace(/\\n\\n/g, '\n\n').replace(/\\n/g, '\n')}
+                              </div>
+                              <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                                <h4 className="font-semibold text-blue-900 text-sm mb-2">Expert's Reasoning</h4>
+                                <p className="text-sm text-blue-800 whitespace-pre-wrap">{selectedListing.reasoning}</p>
+                              </div>
+                              <Button onClick={handleCopy} className="w-full bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 text-white py-4 font-semibold text-lg">
+                                {copied ? <Check className="w-5 h-5 mr-2" /> : <Copy className="w-5 h-5 mr-2" />}
+                                {copied ? "Copied!" : "Copy Listing"}
+                              </Button>
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <div className="text-center text-red-600">
+                          <p>Sorry, we couldn't generate a listing at this time.</p>
+                          <p>Please try again or write a more detailed description.</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </Card>
+
+                <div className="flex justify-center space-x-4">
+                  <Button onClick={() => { setCurrentStep("upload"); setAiResponse(null); }} variant="outline" className="border-slate-300 text-slate-700 px-6 py-3 font-medium">
+                    📷 Try Another Item
+                  </Button>
+                  <Button variant="outline" className="border-slate-300 text-slate-700 bg-transparent px-6 py-3 font-medium">
+                    <Share2 className="w-4 h-4 mr-2" />
+                    Share FlipEasy
+                  </Button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </main>
     </div>
-  );
+  )
 }
