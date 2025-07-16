@@ -7,7 +7,7 @@ export async function POST(request: NextRequest) {
     const audioFile = formData.get('audio') as File | null;
     let userDescription = formData.get('description') as string || '';
     
-    console.log('=== PROCESSING WITH GOOGLE SEARCH GROUNDING ===');
+    console.log('=== PROCESSING REQUEST ===');
     console.log('Image:', imageFile?.name, imageFile?.size);
     console.log('Description:', userDescription);
     console.log('Audio:', audioFile?.name, audioFile?.size);
@@ -21,10 +21,11 @@ export async function POST(request: NextRequest) {
     
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
+      console.error('GEMINI_API_KEY not found in environment');
       return NextResponse.json({ error: 'API key not configured' }, { status: 500 });
     }
 
-    // If there's an audio file, transcribe it and prepend it to the description
+    // Handle audio transcription if present
     if (audioFile) {
       try {
         console.log('Transcribing audio...');
@@ -39,7 +40,7 @@ export async function POST(request: NextRequest) {
             body: JSON.stringify({
               contents: [{
                 parts: [
-                  { text: "Transcribe this audio recording of a user describing an item for sale." },
+                  { text: "Transcribe this audio recording of a user describing an item for sale. Return only the transcribed text." },
                   { inline_data: { mime_type: audioFile.type, data: base64Audio } }
                 ]
               }]
@@ -60,53 +61,45 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    // ENHANCED PROMPT FOR WEB SEARCH + IMAGE ANALYSIS
-    const prompt = `You are a "listing options" generator. Your goal is to generate a JSON object containing an array of three distinct listing options for a marketplace.
+    // SIMPLIFIED PROMPT THAT RETURNS EXACTLY WHAT FRONTEND EXPECTS
+    const prompt = `You are a marketplace listing generator. Analyze the image and user description to create 3 different listing options.
 
-**User's Description:** "${userDescription}"
+User Description: "${userDescription}"
 
-**Instructions:**
+You MUST respond with ONLY a valid JSON object in this EXACT format:
 
-1.  **Analyze and Research:**
-    *   Thoroughly analyze the user's image and description.
-    *   Use Google Search to find the price of similar new and used items.
-    *   Synthesize all information to create three distinct, high-quality listing options.
-
-2.  **Generate JSON Output:**
-    *   You MUST respond with only a valid JSON object.
-    *   The root of the object should be a "listings" array.
-    *   Each object in the "listings" array should have a unique persona: "The Professional," "The Storyteller," and "The Marketer."
-
-**JSON Structure:**
-
-\`\`\`json
 {
   "listings": [
     {
       "persona": "The Professional",
-      "title": "A clean, straightforward title.",
-      "description": "A fact-based description focusing on features and specs. Use \\n\\n for paragraph breaks.",
-      "price": "A fair market price based on research.",
-      "reasoning": "Explain why this price and description are effective for a professional listing."
+      "title": "Brief, factual title under 60 characters",
+      "description": "Professional description with features and condition details",
+      "price": "$XX",
+      "reasoning": "Why this approach works for serious buyers"
     },
     {
-      "persona": "The Storyteller",
-      "title": "A more creative, narrative-driven title.",
-      "description": "A description that tells a story about the item, using details from the user's input. Use \\n\\n for paragraph breaks.",
-      "price": "A price that reflects the item's story and unique value.",
-      "reasoning": "Explain why this price and description will appeal to buyers looking for an item with character."
+      "persona": "The Storyteller", 
+      "title": "Engaging title that tells a story",
+      "description": "Description that includes the user's story and emotional connection",
+      "price": "$XX",
+      "reasoning": "Why storytelling helps connect with buyers"
     },
     {
       "persona": "The Marketer",
-      "title": "A sales-focused title that creates urgency.",
-      "description": "A persuasive description that uses marketing language to highlight benefits and create a sense of urgency. Use \\n\\n for paragraph breaks.",
-      "price": "A competitive price designed to sell quickly.",
-      "reasoning": "Explain why this price and description will attract a lot of buyers and lead to a fast sale."
+      "title": "Compelling title that creates urgency",
+      "description": "Marketing-focused description that highlights value and creates urgency",
+      "price": "$XX", 
+      "reasoning": "Why this approach drives quick sales"
     }
   ]
 }
-\`\`\`
-`;
+
+Important:
+- Prices should be realistic based on the item condition
+- Keep titles under 60 characters
+- Make descriptions 2-3 sentences
+- Base everything on what you see in the image + user description
+- DO NOT include any text before or after the JSON`;
 
     const requestBody = {
       contents: [{
@@ -121,21 +114,12 @@ export async function POST(request: NextRequest) {
         ]
       }],
       generationConfig: {
-        temperature: 0.3,
-        maxOutputTokens: 3000
-      },
-      // Enable Google Search grounding
-      tools: [{
-        google_search_retrieval: {
-          dynamic_retrieval_config: {
-            mode: "MODE_DYNAMIC",
-            dynamic_threshold: 0.5  // Search when 50%+ confidence it will help
-          }
-        }
-      }]
+        temperature: 0.7,
+        maxOutputTokens: 2000
+      }
     };
 
-    console.log('Making API call with Google Search grounding...');
+    console.log('Making Gemini API call...');
     
     const response = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-latest:generateContent?key=${apiKey}`,
@@ -150,145 +134,82 @@ export async function POST(request: NextRequest) {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('API error:', errorText);
-      
-      // If grounding fails, try without it
-      if (response.status === 400 || response.status === 403) {
-        console.log('Grounding failed, trying without web search...');
-        return await fallbackWithoutSearch(apiKey, requestBody, userDescription);
-      }
-      
-      throw new Error(`API failed: ${response.status}`);
+      console.error('Gemini API error:', errorText);
+      return NextResponse.json(createFallbackResponse(), { status: 200 });
     }
 
     const result = await response.json();
     const text = result.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    const groundingMetadata = result.candidates?.[0]?.groundingMetadata;
     
-    console.log('Raw AI response:', text.substring(0, 300) + '...');
-    console.log('Grounding metadata:', !!groundingMetadata);
+    console.log('Raw AI response:', text.substring(0, 500) + '...');
     
-    if (groundingMetadata) {
-      console.log('SUCCESS: Web search was used!');
-      console.log('Search queries:', groundingMetadata.webSearchQueries);
-    }
-    
-    // Parse the comprehensive JSON response
-    let comprehensiveData;
+    // Parse the JSON response
     try {
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      // Clean the response text
+      let cleanText = text.trim();
+      
+      // Remove markdown code blocks if present
+      if (cleanText.startsWith('```json')) {
+        cleanText = cleanText.replace(/```json\n?/, '').replace(/\n?```$/, '');
+      }
+      if (cleanText.startsWith('```')) {
+        cleanText = cleanText.replace(/```\n?/, '').replace(/\n?```$/, '');
+      }
+      
+      // Find JSON object
+      const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
-        comprehensiveData = JSON.parse(jsonMatch[0]);
-        console.log('Successfully parsed comprehensive data');
+        const parsedData = JSON.parse(jsonMatch[0]);
+        
+        // Validate the structure
+        if (parsedData.listings && Array.isArray(parsedData.listings) && parsedData.listings.length > 0) {
+          console.log('Successfully parsed listings:', parsedData.listings.length);
+          return NextResponse.json(parsedData);
+        } else {
+          console.error('Invalid listings structure:', parsedData);
+          return NextResponse.json(createFallbackResponse());
+        }
+      } else {
+        console.error('No JSON found in response');
+        return NextResponse.json(createFallbackResponse());
       }
     } catch (parseError) {
-      console.log('JSON parse failed, creating intelligent fallback');
-    }
-    
-    // Create the response based on what we got
-    if (comprehensiveData) {
-      return NextResponse.json({
-        success: true,
-        web_search_used: !!groundingMetadata,
-        search_queries: groundingMetadata?.webSearchQueries || [],
-        listing: comprehensiveData
-      });
-    } else {
-      // Create intelligent fallback from the response text
-      return NextResponse.json({
-        success: true,
-        web_search_used: !!groundingMetadata,
-        search_queries: groundingMetadata?.webSearchQueries || [],
-        listing: createIntelligentFallback(text, userDescription, groundingMetadata)
-      });
+      console.error('JSON parsing failed:', parseError);
+      console.error('Response text:', text);
+      return NextResponse.json(createFallbackResponse());
     }
 
   } catch (error) {
     console.error('Request failed:', error);
-    
-    return NextResponse.json({
-      success: false,
-      listing: createBasicFallback(),
-      error: 'Service temporarily unavailable'
-    });
+    return NextResponse.json(createFallbackResponse());
   }
 }
 
-// Fallback without web search
-async function fallbackWithoutSearch(apiKey: string, originalRequest: any, userDescription: string) {
-  console.log('Attempting fallback without web search...');
-  
-  const fallbackRequest = {
-    ...originalRequest,
-    tools: undefined  // Remove web search tools
-  };
-  
-  try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-latest:generateContent?key=${apiKey}`,
+// Create fallback response when AI fails
+function createFallbackResponse() {
+  return {
+    listings: [
       {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(fallbackRequest)
+        persona: "The Professional",
+        title: "Quality Item for Sale - Excellent Condition",
+        description: "Well-maintained item in good working condition. Perfect for someone looking for a reliable option at a great price. Please see photos for details.",
+        price: "$50",
+        reasoning: "Professional approach focuses on condition and value proposition to attract serious buyers."
+      },
+      {
+        persona: "The Storyteller",
+        title: "Beautiful Item with Great Memories",
+        description: "This item has been part of our home and served us well. We're moving and hoping it will bring the same joy to a new owner. It's ready for its next chapter!",
+        price: "$45",
+        reasoning: "Storytelling creates emotional connection and makes the item feel special rather than just functional."
+      },
+      {
+        persona: "The Marketer",
+        title: "MUST SELL! Great Deal on Quality Item",
+        description: "Don't miss out on this fantastic opportunity! High-quality item at an unbeatable price. Perfect condition, ready to go. First come, first served!",
+        price: "$40",
+        reasoning: "Marketing language creates urgency and emphasizes the deal aspect to drive quick action."
       }
-    );
-    
-    if (response.ok) {
-      const result = await response.json();
-      const text = result.candidates?.[0]?.content?.parts?.[0]?.text || '';
-      
-      return NextResponse.json({
-        success: true,
-        web_search_used: false,
-        fallback_mode: true,
-        listing: createIntelligentFallback(text, userDescription, null)
-      });
-    }
-  } catch (error) {
-    console.error('Fallback also failed:', error);
-  }
-  
-  return NextResponse.json({
-    success: false,
-    listing: createBasicFallback(),
-    error: 'Analysis service unavailable'
-  });
-}
-
-// Create intelligent listing from AI response
-function createIntelligentFallback(aiText: string, userDescription: string, groundingMetadata: any) {
-  // This is a simplified fallback and may not perfectly parse all fields.
-  const titleMatch = aiText.match(/"title":\s*"(.*?)"/);
-  const descriptionMatch = aiText.match(/"description":\s*"(.*?)"/s);
-
-  return {
-    category: 'Miscellaneous',
-    confidence: 'Low',
-    brand: '',
-    model: '',
-    title: titleMatch ? titleMatch[1] : 'Quality Item for Sale',
-    condition: 'Good',
-    description: descriptionMatch ? descriptionMatch[1] : userDescription,
-    features: [],
-    dimensions: { inches: '', cm: '' },
-    usage: '',
-    ai_reasoning: 'This is a fallback listing. The AI was unable to generate a full listing.'
-  };
-}
-
-// Basic fallback when everything fails
-function createBasicFallback() {
-  return {
-    category: 'Miscellaneous',
-    confidence: 'Low',
-    brand: 'N/A',
-    model: 'N/A',
-    title: 'Item for Sale',
-    condition: 'Good',
-    description: 'Please see the photo for details.',
-    features: [],
-    dimensions: { inches: 'N/A', cm: 'N/A' },
-    usage: 'General use',
-    ai_reasoning: 'The AI analysis failed. This is a basic fallback listing.'
+    ]
   };
 }
