@@ -82,7 +82,7 @@ const prompt = `You are an Expert Sales Agent AI for FlipEasy. Your mission is t
 
 4.  **Generate a Single, Perfect Listing:**
     *   You MUST respond with only a valid JSON object.
-    *   The title must follow the format: \`Item Name - Condition - Price\`.
+    *   The title must follow the format: \`Item Name - Condition\`.
 
 **JSON STRUCTURE:**
 
@@ -90,7 +90,7 @@ const prompt = `You are an Expert Sales Agent AI for FlipEasy. Your mission is t
   "listings": [
     {
       "persona": "AI Expert",
-      "title": "A specific, professional title in the format: Item Name - Condition - Price.",
+      "title": "A specific, professional title in the format: Item Name - Condition.",
       "description": "A persuasive, multi-paragraph description. Start with a powerful hook. Then, write a value-driven paragraph about the item's benefits. Follow with a bulleted list of key features. Finally, weave in the user's personal story and end with a clear call to action. Use \\n\\n for paragraph breaks.",
       "price": "A fair but compelling market price, based on your research.",
       "reasoning": "A detailed explanation of your pricing strategy, referencing your market research and the item's condition. Also, explain why your suggested title and description will be effective."
