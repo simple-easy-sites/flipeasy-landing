@@ -35,6 +35,7 @@ export default function CreateListing() {
   const [editableListing, setEditableListing] = useState<ListingOption | null>(null)
   const [copied, setCopied] = useState(false)
   const [processingStatus, setProcessingStatus] = useState("Creating your listing...")
+  const [copyFeedback, setCopyFeedback] = useState('')
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
@@ -152,6 +153,13 @@ export default function CreateListing() {
     navigator.clipboard.writeText(fullListing).then(() => {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
+    })
+  }
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopyFeedback('Copied!')
+      setTimeout(() => setCopyFeedback(''), 2000)
     })
   }
 
@@ -319,59 +327,55 @@ export default function CreateListing() {
                 </div>
 
                 <Card className="p-8 bg-white shadow-xl max-w-4xl mx-auto">
-                  <div className="grid lg:grid-cols-2 gap-8">
-                    <div>
-                      <img src={photoPreview || "/placeholder.svg"} alt="Item" className="w-full rounded-lg shadow-lg" />
-                    </div>
-                    <div className="space-y-4">
-                      {editableListing ? (
-                        <>
-                          <div>
-                            <label className="text-sm font-semibold text-slate-600">Title</label>
-                            <input
-                              type="text"
-                              value={editableListing.title}
-                              onChange={(e) => setEditableListing({ ...editableListing, title: e.target.value })}
-                              className="w-full mt-1 p-2 border border-slate-300 rounded-md"
-                            />
-                          </div>
-                          <div>
-                            <label className="text-sm font-semibold text-slate-600">Price</label>
-                            <input
-                              type="text"
-                              value={editableListing.price}
-                              onChange={(e) => setEditableListing({ ...editableListing, price: e.target.value })}
-                              className="w-full mt-1 p-2 border border-slate-300 rounded-md"
-                            />
-                          </div>
-                          <div>
-                            <label className="text-sm font-semibold text-slate-600">Description</label>
-                            <textarea
-                              value={editableListing.description.replace(/\\n\\n/g, '\n\n').replace(/\\n/g, '\n')}
-                              onChange={(e) => setEditableListing({ ...editableListing, description: e.target.value })}
-                              className="w-full mt-1 p-2 border border-slate-300 rounded-md h-48"
-                            />
-                          </div>
-                          <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                            <h4 className="font-semibold text-blue-900 text-sm mb-2">Expert's Reasoning</h4>
-                            <p className="text-sm text-blue-800 whitespace-pre-wrap">{editableListing.reasoning}</p>
-                          </div>
-                          <Button onClick={() => processWithAI("refine")} className="w-full bg-gradient-to-r from-purple-500 to-purple-600 text-white">
-                            <RefreshCw className="w-4 h-4 mr-2" />
-                            Refine with Voice
-                          </Button>
-                          <Button onClick={handleCopy} className="w-full bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 text-white py-4 font-semibold text-lg">
-                            {copied ? <Check className="w-5 h-5 mr-2" /> : <Copy className="w-5 h-5 mr-2" />}
-                            {copied ? "Copied!" : "Copy Listing"}
-                          </Button>
-                        </>
-                      ) : (
-                        <div className="text-center text-red-600">
-                          <p>Sorry, we couldn't generate a listing at this time.</p>
-                          <p>Please try again or write a more detailed description.</p>
+                  <div className="space-y-6">
+                    <img src={photoPreview || "/placeholder.svg"} alt="Item" className="w-full rounded-lg shadow-lg" />
+                    {editableListing ? (
+                      <div className="space-y-6">
+                        <div>
+                          <label className="text-sm font-semibold text-slate-600">Title</label>
+                          <input
+                            type="text"
+                            value={editableListing.title}
+                            onChange={(e) => setEditableListing({ ...editableListing, title: e.target.value })}
+                            className="w-full mt-1 p-2 border border-slate-300 rounded-md"
+                          />
                         </div>
-                      )}
-                    </div>
+                        <div>
+                          <label className="text-sm font-semibold text-slate-600">Price</label>
+                          <input
+                            type="text"
+                            value={editableListing.price}
+                            onChange={(e) => setEditableListing({ ...editableListing, price: e.target.value })}
+                            className="w-full mt-1 p-2 border border-slate-300 rounded-md"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-sm font-semibold text-slate-600">Description</label>
+                          <textarea
+                            value={editableListing.description.replace(/\\n\\n/g, '\n\n').replace(/\\n/g, '\n')}
+                            onChange={(e) => setEditableListing({ ...editableListing, description: e.target.value })}
+                            className="w-full mt-1 p-2 border border-slate-300 rounded-md h-48"
+                          />
+                        </div>
+                        <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                          <h4 className="font-semibold text-blue-900 text-sm mb-2">Expert's Reasoning</h4>
+                          <p className="text-sm text-blue-800 whitespace-pre-wrap">{editableListing.reasoning}</p>
+                        </div>
+                        <Button onClick={() => processWithAI("refine")} className="w-full bg-gradient-to-r from-purple-500 to-purple-600 text-white">
+                          <RefreshCw className="w-4 h-4 mr-2" />
+                          Refine with Voice
+                        </Button>
+                        <Button onClick={handleCopy} className="w-full bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 text-white py-4 font-semibold text-lg">
+                          {copied ? <Check className="w-5 h-5 mr-2" /> : <Copy className="w-5 h-5 mr-2" />}
+                          {copied ? "Copied!" : "Copy Listing"}
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="text-center text-red-600">
+                        <p>Sorry, we couldn't generate a listing at this time.</p>
+                        <p>Please try again or write a more detailed description.</p>
+                      </div>
+                    )}
                   </div>
                 </Card>
 
