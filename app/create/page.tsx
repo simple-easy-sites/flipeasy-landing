@@ -35,6 +35,7 @@ export default function CreateListing() {
   const [selectedListing, setSelectedListing] = useState<ListingOption | null>(null)
   const [copied, setCopied] = useState(false)
   const [processingStatus, setProcessingStatus] = useState("Creating your listing...")
+  const [copyFeedback, setCopyFeedback] = useState('')
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
@@ -142,22 +143,23 @@ export default function CreateListing() {
     return `${mins}:${secs.toString().padStart(2, "0")}`
   }
 
-  const handleCopy = () => {
-    if (!selectedListing) return
-    const { title, price, description } = selectedListing
-    const fullListing = `Title: ${title}\n\nPrice: ${price}\n\nDescription:\n${description.replace(/\\n\\n/g, '\n\n').replace(/\\n/g, '\n')}`
-    navigator.clipboard.writeText(fullListing).then(() => {
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    })
-  }
+const handleCopy = () => {
+  if (!aiResponse?.listings?.[0]) return
+  const listing = aiResponse.listings[0]
+  const { title, price, description } = listing
+  const fullListing = `TITLE:\n${title} - ${price}\n\nDESCRIPTION:\n${description.replace(/\\n\\n/g, '\n\n').replace(/\\n/g, '\n')}\n\n--- Generated with FlipEasy ---`
+  navigator.clipboard.writeText(fullListing).then(() => {
+    setCopied(true)
+    setTimeout(() => setCopied(false), 3000)
+  })
+}
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text).then(() => {
-      // Optional: Add visual feedback here
-      console.log('Copied:', text.substring(0, 50) + '...')
-    })
-  }
+const copyToClipboard = (text: string) => {
+  navigator.clipboard.writeText(text).then(() => {
+    setCopyFeedback('Copied!')
+    setTimeout(() => setCopyFeedback(''), 2000)
+  })
+}
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-cyan-50/30">
@@ -456,73 +458,129 @@ export default function CreateListing() {
                     </div>
                     <div className="space-y-4">
                       {aiResponse?.listings && aiResponse.listings.length > 0 ? (
-                        <>
-                          <div className="flex space-x-2">
-                            {aiResponse.listings.map((listing, index) => (
-                              <Button
-                                key={index}
-                                variant={selectedListing?.persona === listing.persona ? "default" : "outline"}
-                                onClick={() => setSelectedListing(listing)}
-                              >
-                                {listing.persona}
-                              </Button>
-                            ))}
-                          </div>
-                          {selectedListing && (
-  <div className="space-y-6">
-    {/* Combined Title + Price */}
-    <h2 className="text-2xl font-bold text-slate-900">
-      {selectedListing.title} - {selectedListing.price}
-    </h2>
-    
-    {/* Copy Title Section */}
-    <div className="flex items-center justify-between bg-slate-50 rounded-lg p-3 border">
-      <span className="text-sm font-medium text-slate-700">Marketplace Title:</span>
-      <Button 
-        onClick={() => copyToClipboard(`${selectedListing.title} - ${selectedListing.price}`)}
-        variant="outline" 
-        size="sm"
-        className="text-xs"
-      >
-        <Copy className="w-3 h-3 mr-1" />
-        Copy Title
-      </Button>
-    </div>
-    
-    {/* Description Display */}
-    <div className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap bg-white border rounded-lg p-4">
-      {selectedListing.description.replace(/\\n\\n/g, '\n\n').replace(/\\n/g, '\n')}
-    </div>
-    
-    {/* Copy Description Section */}
-    <div className="flex items-center justify-between bg-slate-50 rounded-lg p-3 border">
-      <span className="text-sm font-medium text-slate-700">Marketplace Description:</span>
-      <Button 
-        onClick={() => copyToClipboard(selectedListing.description.replace(/\\n\\n/g, '\n\n').replace(/\\n/g, '\n'))}
-        variant="outline" 
-        size="sm"
-        className="text-xs"
-      >
-        <Copy className="w-3 h-3 mr-1" />
-        Copy Description
-      </Button>
-    </div>
-    
-    {/* Expert's Reasoning (keep existing) */}
-    <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-      <h4 className="font-semibold text-blue-900 text-sm mb-2">Expert's Reasoning</h4>
-      <p className="text-sm text-blue-800 whitespace-pre-wrap">{selectedListing.reasoning}</p>
-    </div>
-    
-    {/* Keep the existing "Copy Listing" button as-is */}
-    <Button onClick={handleCopy} className="w-full bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 text-white py-4 font-semibold text-lg">
-      {copied ? <Check className="w-5 h-5 mr-2" /> : <Copy className="w-5 h-5 mr-2" />}
-      {copied ? "Copied!" : "Copy Complete Listing"}
-    </Button>
-  </div>
-)}
-                        </>
-                      ) : (
+  <>
+    {(() => {
+      const listing = aiResponse.listings[0]; // Always use first (and only) listing
+      return (
+        <div className="space-y-6">
+          {/* Main Listing Display */}
+          <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-2xl p-6 border border-green-200">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-green-800">Your Professional Listing</h3>
+              <div className="bg-green-500 text-white px-3 py-1 rounded-full text-sm font-medium">
+                Ready to Post
+              </div>
+            </div>
+            
+            {/* Complete Title (Item + Price) */}
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-slate-900 mb-2">
+                {listing.title} - {listing.price}
+              </h2>
+              <div className="flex items-center justify-between bg-white rounded-lg p-4 border border-green-200">
+                <div>
+                  <span className="text-sm font-medium text-slate-700">Marketplace Title:</span>
+                  <div className="text-slate-600 text-sm mt-1">Copy this for the title field</div>
+                </div>
+                <Button 
+                  onClick={() => copyToClipboard(`${listing.title} - ${listing.price}`)}
+                  className="bg-green-500 hover:bg-green-600 text-white px-4 py-2"
+                >
+                  <Copy className="w-4 h-4 mr-2" />
+                  Copy Title
+                </Button>
+              </div>
+            </div>
+
+            {/* Description */}
+            <div className="mb-6">
+              <h4 className="text-lg font-semibold text-slate-900 mb-3">Description</h4>
+              <div className="bg-white rounded-lg p-4 border border-green-200 mb-4">
+                <div className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
+                  {listing.description.replace(/\\n\\n/g, '\n\n').replace(/\\n/g, '\n')}
+                </div>
+              </div>
+              <div className="flex items-center justify-between bg-white rounded-lg p-4 border border-green-200">
+                <div>
+                  <span className="text-sm font-medium text-slate-700">Marketplace Description:</span>
+                  <div className="text-slate-600 text-sm mt-1">Copy this for the description field</div>
+                </div>
+                <Button 
+                  onClick={() => copyToClipboard(listing.description.replace(/\\n\\n/g, '\n\n').replace(/\\n/g, '\n'))}
+                  className="bg-green-500 hover:bg-green-600 text-white px-4 py-2"
+                >
+                  <Copy className="w-4 h-4 mr-2" />
+                  Copy Description
+                </Button>
+              </div>
+            </div>
+
+            {/* AI Insights */}
+            <div className="bg-blue-50 rounded-lg p-4 border border-blue-200 mb-6">
+              <h4 className="font-semibold text-blue-900 text-sm mb-2">Why This Listing Works</h4>
+              <p className="text-sm text-blue-800">{listing.reasoning}</p>
+            </div>
+
+            {/* Next Steps */}
+            <div className="bg-slate-50 rounded-lg p-4 border border-slate-200 mb-6">
+              <h4 className="font-semibold text-slate-900 text-sm mb-3">Next Steps:</h4>
+              <div className="space-y-2 text-sm text-slate-700">
+                <div className="flex items-center space-x-2">
+                  <div className="w-6 h-6 bg-cyan-500 text-white rounded-full flex items-center justify-center text-xs font-bold">1</div>
+                  <span>Open Facebook Marketplace, Craigslist, or OfferUp</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <div className="w-6 h-6 bg-cyan-500 text-white rounded-full flex items-center justify-center text-xs font-bold">2</div>
+                  <span>Click "Copy Title" and paste into the title field</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <div className="w-6 h-6 bg-cyan-500 text-white rounded-full flex items-center justify-center text-xs font-bold">3</div>
+                  <span>Click "Copy Description" and paste into the description field</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <div className="w-6 h-6 bg-cyan-500 text-white rounded-full flex items-center justify-center text-xs font-bold">4</div>
+                  <span>Upload your photo and publish your listing!</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="space-y-3">
+              <Button 
+                onClick={handleCopy} 
+                className="w-full bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 text-white py-4 font-semibold text-lg"
+              >
+                {copied ? <Check className="w-5 h-5 mr-2" /> : <Copy className="w-5 h-5 mr-2" />}
+                {copied ? "Copied Complete Listing!" : "Copy Complete Listing"}
+              </Button>
+              
+              <div className="grid grid-cols-2 gap-3">
+                <Button 
+                  onClick={() => { 
+                    setCurrentStep("upload"); 
+                    setAiResponse(null); 
+                    setSelectedListing(null);
+                  }} 
+                  variant="outline" 
+                  className="border-slate-300 text-slate-700"
+                >
+                  List Another Item
+                </Button>
+                <Button 
+                  onClick={() => window.open('https://www.facebook.com/marketplace', '_blank')}
+                  variant="outline" 
+                  className="border-blue-300 text-blue-700 hover:bg-blue-50"
+                >
+                  Open Facebook Marketplace
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    })()}
+  </>
+) : (
                         <div className="text-center text-red-600">
                           <p>Sorry, we couldn't generate a listing at this time.</p>
                           <p>Please try again or write a more detailed description.</p>

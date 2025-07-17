@@ -61,55 +61,64 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    // SIMPLIFIED PROMPT THAT RETURNS EXACTLY WHAT FRONTEND EXPECTS
-    const prompt = `You are a "deep-dive" AI listing generator. Your goal is to perform a thorough analysis of the user's item and then generate a JSON object with three distinct, high-quality listing options.
+const prompt = `You are FlipEasy's expert marketplace listing AI. Analyze the image and user description to create ONE perfect listing that sellers couldn't write themselves.
 
-**User's Description:** "${userDescription}"
+**User Description:** "${userDescription}"
 
-**Instructions:**
+**YOUR MISSION:**
+1. **VISUAL ANALYSIS FIRST**: Look at the image and identify:
+   - Exact item type, brand, model if visible
+   - Material (wood, metal, fabric, plastic, etc.)
+   - Color and finish details
+   - Visible condition (scratches, wear, cleanliness)
+   - Size/scale indicators relative to surroundings
+   - Any unique features or details only visible in photo
 
-1.  **Deep-Dive Analysis:**
-    *   **Visual Analysis:** First, analyze the image to identify the item's key visual characteristics (e.g., color, material, style).
-    *   **Web Search & Identification:** Use these visual cues and the user's description to perform a Google search to identify the exact product name, brand, and model.
-    *   **Market Research:** Perform a second Google search to find the price of similar new and used items, as well as any other relevant details (e.g., materials, dimensions).
+2. **CONDITION ASSESSMENT**: Based on image + user description:
+   - Evaluate actual condition (New/Like New/Good/Fair/Poor)
+   - Note specific wear patterns or damage visible
+   - Assess cleanliness and maintenance level
 
-2.  **Generate JSON Output:**
-    *   You MUST respond with only a valid JSON object.
-    *   The root of the object should be a "listings" array.
-    *   Each object in the "listings" array should have a unique persona: "The Professional," "The Storyteller," and "The Marketer."
-    *   The descriptions must be "robust" and "detailed," using the information you have gathered.
-    *   NO EMOJIS in any titles or descriptions.
+3. **PRICING LOGIC**: 
+   - New items: 60-70% of retail value
+   - Like New: 50-60% of retail value  
+   - Good condition: 40-50% of retail value
+   - Fair condition: 25-35% of retail value
+   - Consider brand premium (IKEA vs Herman Miller)
 
-**JSON Structure:**
+4. **GENERATE ONE PERFECT LISTING** that combines:
+   - Specific details only AI can extract from image
+   - User's personal story/context
+   - Professional selling language
+   - Honest condition assessment
 
-\`\`\`json
+**RESPOND WITH ONLY THIS JSON (no other text):**
+
 {
   "listings": [
     {
-      "persona": "The Professional",
-      "title": "A clean, straightforward title that includes the brand and model.",
-      "description": "A detailed, fact-based description that includes the item's key features, specifications, and condition. Use \\n\\n for paragraph breaks.",
-      "price": "A fair market price based on your research.",
-      "reasoning": "Explain your choice of title, description, and price, and reference the research you have done."
-    },
-    {
-      "persona": "The Storyteller",
-      "title": "A more creative, narrative-driven title that evokes a feeling.",
-      "description": "A description that tells a story about the item, using details from the user's input and your research to create an emotional connection. For example: 'This was my favorite mirror, really gave the house a modern feel, people always complimented it, hoping it brings the same joy to another home'. Use \\n\\n for paragraph breaks.",
-      "price": "A price that reflects the item's story and unique value.",
-      "reasoning": "Explain how the story and emotional connection justify the price."
-    },
-    {
-      "persona": "The Marketer",
-      "title": "A sales-focused title that creates urgency and highlights a key benefit.",
-      "description": "A persuasive description that uses marketing language to highlight the item's value, create a sense of urgency, and encourage a quick sale. Use \\n\\n for paragraph breaks.",
-      "price": "A competitive price designed to sell quickly.",
-      "reasoning": "Explain how the title, description, and price work together to create a compelling marketing message."
+      "persona": "AI Expert",
+      "title": "Specific Brand/Type + Key Feature + Condition (under 60 chars)",
+      "description": "Start with what makes this item special based on the image. Include specific materials, colors, and condition details you can see. Weave in the user's story naturally. Add one selling tip specific to this item category. Use \\n\\n for paragraph breaks. Be honest about any visible wear.",
+      "price": "$XX",
+      "reasoning": "Explain the specific image details that determined the price and why this listing will attract serious buyers."
     }
   ]
 }
-\`\`\`
-`;
+
+**EXAMPLES OF GOOD TITLES:**
+- "Herman Miller Aeron Office Chair Black Mesh Like New"
+- "IKEA Hemnes Dresser White 6-Drawer Good Condition" 
+- "Vintage Leather Club Chair Brown Distressed Character"
+- "MacBook Pro 13inch 2019 Silver Excellent Condition"
+
+**REQUIREMENTS:**
+- NO generic descriptions - be specific to THIS item
+- Include exact colors, materials, brands visible in image
+- Honest condition assessment based on what you see
+- Price reflects realistic resale value for condition
+- NO emojis anywhere
+- Mention specific selling advantages ("perfect for small apartments", "ideal for home office")`;
 
     const requestBody = {
       contents: [{
@@ -200,25 +209,11 @@ function createFallbackResponse() {
   return {
     listings: [
       {
-        persona: "The Professional",
-        title: "Quality Item for Sale - Excellent Condition",
-        description: "Well-maintained item in good working condition. Perfect for someone looking for a reliable option at a great price. Please see photos for details.",
+        persona: "AI Expert",
+        title: "Quality Item for Sale - Good Condition",
+        description: "Well-maintained item ready for a new home. Based on the photo, this appears to be in good working condition with normal signs of use. Please see photo for exact condition details.\\n\\nWe're selling because we no longer need it and hope it will be useful to someone else. Item comes from a clean, non-smoking home.",
         price: "$50",
-        reasoning: "Professional approach focuses on condition and value proposition to attract serious buyers."
-      },
-      {
-        persona: "The Storyteller",
-        title: "Beautiful Item with Great Memories",
-        description: "This item has been part of our home and served us well. We're moving and hoping it will bring the same joy to a new owner. It's ready for its next chapter!",
-        price: "$45",
-        reasoning: "Storytelling creates emotional connection and makes the item feel special rather than just functional."
-      },
-      {
-        persona: "The Marketer",
-        title: "MUST SELL! Great Deal on Quality Item",
-        description: "Don't miss out on this fantastic opportunity! High-quality item at an unbeatable price. Perfect condition, ready to go. First come, first served!",
-        price: "$40",
-        reasoning: "Marketing language creates urgency and emphasizes the deal aspect to drive quick action."
+        reasoning: "Moderate pricing reflects good condition with typical wear. Honest description builds buyer trust and encourages serious inquiries."
       }
     ]
   };
