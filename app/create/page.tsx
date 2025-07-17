@@ -152,6 +152,13 @@ export default function CreateListing() {
     })
   }
 
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      // Optional: Add visual feedback here
+      console.log('Copied:', text.substring(0, 50) + '...')
+    })
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-cyan-50/30">
       <header className="px-4 py-6 border-b border-slate-200/50 bg-white/60 backdrop-blur-xl">
@@ -462,22 +469,58 @@ export default function CreateListing() {
                             ))}
                           </div>
                           {selectedListing && (
-                            <div className="space-y-4">
-                              <h2 className="text-2xl font-bold text-slate-900">{selectedListing.title}</h2>
-                              <p className="text-3xl font-bold text-green-600">{selectedListing.price}</p>
-                              <div className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
-                                {selectedListing.description.replace(/\\n\\n/g, '\n\n').replace(/\\n/g, '\n')}
-                              </div>
-                              <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                                <h4 className="font-semibold text-blue-900 text-sm mb-2">Expert's Reasoning</h4>
-                                <p className="text-sm text-blue-800 whitespace-pre-wrap">{selectedListing.reasoning}</p>
-                              </div>
-                              <Button onClick={handleCopy} className="w-full bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 text-white py-4 font-semibold text-lg">
-                                {copied ? <Check className="w-5 h-5 mr-2" /> : <Copy className="w-5 h-5 mr-2" />}
-                                {copied ? "Copied!" : "Copy Listing"}
-                              </Button>
-                            </div>
-                          )}
+  <div className="space-y-6">
+    {/* Combined Title + Price */}
+    <h2 className="text-2xl font-bold text-slate-900">
+      {selectedListing.title} - {selectedListing.price}
+    </h2>
+    
+    {/* Copy Title Section */}
+    <div className="flex items-center justify-between bg-slate-50 rounded-lg p-3 border">
+      <span className="text-sm font-medium text-slate-700">Marketplace Title:</span>
+      <Button 
+        onClick={() => copyToClipboard(`${selectedListing.title} - ${selectedListing.price}`)}
+        variant="outline" 
+        size="sm"
+        className="text-xs"
+      >
+        <Copy className="w-3 h-3 mr-1" />
+        Copy Title
+      </Button>
+    </div>
+    
+    {/* Description Display */}
+    <div className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap bg-white border rounded-lg p-4">
+      {selectedListing.description.replace(/\\n\\n/g, '\n\n').replace(/\\n/g, '\n')}
+    </div>
+    
+    {/* Copy Description Section */}
+    <div className="flex items-center justify-between bg-slate-50 rounded-lg p-3 border">
+      <span className="text-sm font-medium text-slate-700">Marketplace Description:</span>
+      <Button 
+        onClick={() => copyToClipboard(selectedListing.description.replace(/\\n\\n/g, '\n\n').replace(/\\n/g, '\n'))}
+        variant="outline" 
+        size="sm"
+        className="text-xs"
+      >
+        <Copy className="w-3 h-3 mr-1" />
+        Copy Description
+      </Button>
+    </div>
+    
+    {/* Expert's Reasoning (keep existing) */}
+    <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+      <h4 className="font-semibold text-blue-900 text-sm mb-2">Expert's Reasoning</h4>
+      <p className="text-sm text-blue-800 whitespace-pre-wrap">{selectedListing.reasoning}</p>
+    </div>
+    
+    {/* Keep the existing "Copy Listing" button as-is */}
+    <Button onClick={handleCopy} className="w-full bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 text-white py-4 font-semibold text-lg">
+      {copied ? <Check className="w-5 h-5 mr-2" /> : <Copy className="w-5 h-5 mr-2" />}
+      {copied ? "Copied!" : "Copy Complete Listing"}
+    </Button>
+  </div>
+)}
                         </>
                       ) : (
                         <div className="text-center text-red-600">

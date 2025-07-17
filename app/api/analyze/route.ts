@@ -78,6 +78,7 @@ export async function POST(request: NextRequest) {
     *   The root of the object should be a "listings" array.
     *   Each object in the "listings" array should have a unique persona: "The Professional," "The Storyteller," and "The Marketer."
     *   The descriptions must be "robust" and "detailed," using the information you have gathered.
+    *   NO EMOJIS in any titles or descriptions.
 
 **JSON Structure:**
 
@@ -94,7 +95,7 @@ export async function POST(request: NextRequest) {
     {
       "persona": "The Storyteller",
       "title": "A more creative, narrative-driven title that evokes a feeling.",
-      "description": "A description that tells a story about the item, using details from the user's input and your research to create an emotional connection. Use \\n\\n for paragraph breaks.",
+      "description": "A description that tells a story about the item, using details from the user's input and your research to create an emotional connection. For example: 'This was my favorite mirror, really gave the house a modern feel, people always complimented it, hoping it brings the same joy to another home'. Use \\n\\n for paragraph breaks.",
       "price": "A price that reflects the item's story and unique value.",
       "reasoning": "Explain how the story and emotional connection justify the price."
     },
