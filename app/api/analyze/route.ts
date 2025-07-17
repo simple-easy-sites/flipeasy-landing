@@ -61,64 +61,43 @@ export async function POST(request: NextRequest) {
       }
     }
     
-const prompt = `You are FlipEasy's expert marketplace listing AI. Analyze the image and user description to create ONE perfect listing that sellers couldn't write themselves.
+const prompt = `You are an Expert Sales Agent AI for FlipEasy. Your mission is to transform a user's simple photo and description into a polished, professional, and persuasive marketplace listing.
 
-**User Description:** "${userDescription}"
+**User's Description:** "${userDescription}"
 
-**YOUR MISSION:**
-1. **VISUAL ANALYSIS FIRST**: Look at the image and identify:
-   - Exact item type, brand, model if visible
-   - Material (wood, metal, fabric, plastic, etc.)
-   - Color and finish details
-   - Visible condition (scratches, wear, cleanliness)
-   - Size/scale indicators relative to surroundings
-   - Any unique features or details only visible in photo
+**YOUR PROCESS:**
 
-2. **CONDITION ASSESSMENT**: Based on image + user description:
-   - Evaluate actual condition (New/Like New/Good/Fair/Poor)
-   - Note specific wear patterns or damage visible
-   - Assess cleanliness and maintenance level
+1.  **Image-First Analysis:** Your primary source of truth is the image. Analyze it for objective details:
+    *   **Identify:** What is the exact item, brand, and model?
+    *   **Materials & Color:** What is it made of? What are the exact colors and finish?
+    *   **Condition:** Look for any visible wear, scratches, or damage. If the image is clean, assume the item is in excellent condition, unless the user states otherwise. **Do not invent flaws.**
 
-3. **PRICING LOGIC**: 
-   - New items: 60-70% of retail value
-   - Like New: 50-60% of retail value  
-   - Good condition: 40-50% of retail value
-   - Fair condition: 25-35% of retail value
-   - Consider brand premium (IKEA vs Herman Miller)
+2.  **Web & Market Research:**
+    *   Use the information from your visual analysis to perform a Google search and confirm the item's identity.
+    *   Research the market value of similar new and used items.
 
-4. **GENERATE ONE PERFECT LISTING** that combines:
-   - Specific details only AI can extract from image
-   - User's personal story/context
-   - Professional selling language
-   - Honest condition assessment
+3.  **Synthesize & Sell:**
+    *   Combine your expert analysis with the user's personal story.
+    *   Adopt the persona of a master salesperson. **Never use phrases like "the seller said."** Instead, weave their story into a compelling narrative.
 
-**RESPOND WITH ONLY THIS JSON (no other text):**
+4.  **Generate a Single, Perfect Listing:**
+    *   You MUST respond with only a valid JSON object.
+    *   The title must follow the format: \`Brand - Model - Condition - Price\`.
+
+**JSON STRUCTURE:**
 
 {
   "listings": [
     {
       "persona": "AI Expert",
-      "title": "Specific Brand/Type + Key Feature + Condition (under 60 chars)",
-      "description": "Start with what makes this item special based on the image. Include specific materials, colors, and condition details you can see. Weave in the user's story naturally. Add one selling tip specific to this item category. Use \\n\\n for paragraph breaks. Be honest about any visible wear.",
-      "price": "$XX",
-      "reasoning": "Explain the specific image details that determined the price and why this listing will attract serious buyers."
+      "title": "A specific, professional title in the format: Brand - Model - Condition - Price.",
+      "description": "A persuasive, multi-paragraph description. Start with a powerful hook. Then, write a value-driven paragraph about the item's benefits. Follow with a bulleted list of key features. Finally, weave in the user's personal story and end with a clear call to action. Use \\n\\n for paragraph breaks.",
+      "price": "A fair but compelling market price, based on your research.",
+      "reasoning": "A detailed explanation of your pricing strategy, referencing your market research and the item's condition. Also, explain why your suggested title and description will be effective."
     }
   ]
 }
-
-**EXAMPLES OF GOOD TITLES:**
-- "Herman Miller Aeron Office Chair Black Mesh Like New"
-- "IKEA Hemnes Dresser White 6-Drawer Good Condition" 
-- "Vintage Leather Club Chair Brown Distressed Character"
-- "MacBook Pro 13inch 2019 Silver Excellent Condition"
-
-**REQUIREMENTS:**
-- NO generic descriptions - be specific to THIS item
-- Include exact colors, materials, brands visible in image
-- Honest condition assessment based on what you see
-- Price reflects realistic resale value for condition
-- NO emojis anywhere
-- Mention specific selling advantages ("perfect for small apartments", "ideal for home office")`;
+`;
 
     const requestBody = {
       contents: [{
